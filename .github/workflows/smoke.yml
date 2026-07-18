@@ -1,0 +1,40 @@
+name: smoke
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck and bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck bats
+
+      - name: shellcheck
+        run: shellcheck -x lib/*.sh core/*.sh modules/*.sh install.sh VERIFY.sh
+
+      - name: bats
+        run: bats test/
+
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Core install
+        run: bash install.sh --core-only
+
+      - name: Verify
+        run: bash VERIFY.sh
