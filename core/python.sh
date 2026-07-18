@@ -4,7 +4,11 @@ python::install() {
 }
 _python__do() {
   log::step "Installing Python toolchain"
-  sudo apt-get install -y python3 python3-pip python3-venv pipx || return 1
+  case "$(os::detect)" in
+    macos) brew install python pipx || return 1 ;;
+    linux) sudo apt-get install -y python3 python3-pip python3-venv pipx || return 1 ;;
+    *) log::error "unsupported OS for python toolchain (need macOS or Linux)"; return 1 ;;
+  esac
   pipx ensurepath || true
   curl -LsSf https://astral.sh/uv/install.sh | sh || return 1
   # ruff + pyright as isolated tools
