@@ -4,6 +4,7 @@ graphify::install() {
 }
 _graphify__do() {
   log::step "Installing graphify"
-  uv tool install graphify || return 1
+  # graphifyy provides the graphify + graphify-mcp commands
+  uv tool install graphifyy || return 1
   log::ok "graphify installed"
 }

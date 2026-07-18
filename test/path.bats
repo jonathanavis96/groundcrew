@@ -19,3 +19,9 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; RC="$
   bash -c 'source lib/log.sh; source core/path.sh; path::wire '"$RC"
   grep -q 'export FOO=bar' "$RC"
 }
+
+@test "activate puts .local/bin on PATH in-process" {
+  run bash -c 'source lib/log.sh; source core/path.sh; path::activate; echo "$PATH"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$HOME/.local/bin"* ]]
+}

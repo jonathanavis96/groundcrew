@@ -34,5 +34,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   source "$(dirname "$0")/lib/log.sh"
   # shellcheck source=lib/detect.sh
   source "$(dirname "$0")/lib/detect.sh"
+  # shellcheck source=core/path.sh
+  source "$(dirname "$0")/core/path.sh"
+  path::activate
   verify::run
 fi

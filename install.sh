@@ -46,7 +46,9 @@ log::step "Groundcrew — installing core toolchain"
 base::install
 python::install
 node::install
+path::activate
 graphify::install
+# shellcheck disable=SC2119 # path::wire's optional $1 is an rc-path override (tests only), not install.sh's own $1
 path::wire
 
 # shellcheck source=lib/detect.sh
