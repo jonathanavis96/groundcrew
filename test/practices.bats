@@ -44,12 +44,27 @@ setup() {
   [ ! -f "$GROUNDCREW_STATE_DIR/core-practices" ]
 }
 
-@test "practices::install installs an executable pre-push hook when target is a git repo" {
+@test "practices::install installs executable pre-push AND pre-commit guard hooks" {
   git -C "$GROUNDCREW_TARGET" init -q
   run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
   [ "$status" -eq 0 ]
   [ -x "$GROUNDCREW_TARGET/.git/hooks/pre-push" ]
+  [ -x "$GROUNDCREW_TARGET/.git/hooks/pre-commit" ]
   grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-push"
+  grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-commit"
+}
+
+@test "practices::install does not clobber a hook the project already has" {
+  git -C "$GROUNDCREW_TARGET" init -q
+  mkdir -p "$GROUNDCREW_TARGET/.git/hooks"
+  printf '#!/bin/sh\necho existing-husky-hook\n' > "$GROUNDCREW_TARGET/.git/hooks/pre-push"
+  run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
+  [ "$status" -eq 0 ]
+  # Existing pre-push is preserved, not overwritten by the guard.
+  grep -q "existing-husky-hook" "$GROUNDCREW_TARGET/.git/hooks/pre-push"
+  ! grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-push"
+  # The free pre-commit slot still gets the guard.
+  grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-commit"
 }
 
 @test "practices::install skips the git hook when target is not a git repo" {

@@ -34,6 +34,11 @@ done
 if [[ -n "$MODULE" ]]; then
   mod_file="$HERE/modules/$MODULE.sh"
   [[ -f "$mod_file" ]] || { log::error "unknown module: $MODULE (see: ls modules/)"; exit 64; }
+  if (( DRY )); then
+    log::step "Plan (module=$MODULE)"
+    printf 'module: %s\n' "$MODULE"
+    exit 0
+  fi
   # shellcheck source=lib/guard.sh
   source "$HERE/lib/guard.sh"
   # shellcheck source=lib/detect.sh
