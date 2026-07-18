@@ -79,7 +79,7 @@ groundcrew/
     python.sh             # python3, pip, uv, pipx, ruff, pyright
     node.sh               # Node 20 (nvm-managed), npm
     terminal-qol.sh       # ripgrep, fd, fzf, bat
-    graphify.sh           # graphify + graphify-mcp
+    graphify.sh           # graphify (CLI + bundled MCP server)
     path.sh               # idempotent PATH wiring into ~/.bashrc
   agents/
     claude-code.sh        # FULLY scripted: CLI, 11 official plugins (incl. superpowers), MCP, hooks
@@ -173,7 +173,7 @@ Obsidian, and the agent options actually give them.
 - **Python (always):** python3, pip, uv, pipx, ruff, pyright
 - **Node (always):** Node 20 (nvm-managed), npm
 - **Terminal QoL (always):** ripgrep, fd, fzf, bat
-- **Agent core (always):** graphify + graphify-mcp, then the selected agent CLIs
+- **Agent core (always):** graphify (CLI + its bundled MCP server — no separate package), then the selected agent CLIs
 - **PATH wiring (always):** `~/.local/bin`, `~/bin`, npm-global bin, uv, pipx, nvm → `~/.bashrc`,
   written idempotently (no duplicate appends on re-run)
 - **Optional opt-in modules (prompted via the explained picker):**
