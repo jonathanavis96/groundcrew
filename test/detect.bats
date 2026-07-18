@@ -17,3 +17,14 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
   [[ "$output" == *"claude-code"* ]]
   [[ "$output" != *"gemini"* ]]
 }
+
+@test "os::detect reports macos/linux and honours the override" {
+  run bash -c 'source lib/detect.sh; GROUNDCREW_OS=macos os::detect'
+  [ "$status" -eq 0 ]
+  [ "$output" = "macos" ]
+  run bash -c 'source lib/detect.sh; GROUNDCREW_OS=linux os::detect'
+  [ "$output" = "linux" ]
+  # No override: falls back to uname and must be one of the known families.
+  run bash -c 'source lib/detect.sh; os::detect'
+  [[ "$output" == "macos" || "$output" == "linux" || "$output" == "unknown" ]]
+}
