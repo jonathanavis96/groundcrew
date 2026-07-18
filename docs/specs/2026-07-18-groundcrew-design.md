@@ -40,7 +40,10 @@ The tagline is literal: *the ground crew that gets your agent off the ground.*
 
 - Public marketing website / download portal (future — this repo is built to be *served* by it).
 - Licensing, keys, or any paywall. Onboarding is **free and ungated**.
-- macOS / native Linux. **Windows + WSL2 only** for v1.
+- macOS / native Linux, and **full** native-Windows parity. v1 targets **Windows + WSL2**
+  (strongly recommended); if WSL is declined, a **reduced native-Windows-lite** mode installs only
+  the cross-platform essentials (agent CLI, Node/Python/git via winget, markdown rules) — no
+  graphify-mcp, bash hooks, or obsidian bridge (see §11a).
 - Deterministic (fully-scripted) install adapters for Codex / Gemini / Kimi — those use the
   hand-to-agent path in v1. The `agents/` interface leaves room to script them later.
 
@@ -51,7 +54,9 @@ The tagline is literal: *the ground crew that gets your agent off the ground.*
 | First deliverable | Source-controlled installer repo (no website yet) |
 | "Other providers" | Other AI coding **agents** (Claude Code, opencode/Kimi, Codex, Gemini, …) |
 | Access model | Free, no gate |
-| Platforms | Windows + WSL2 only |
+| Platforms | Windows + WSL2 (strongly recommended); **native-Windows-lite** reduced fallback if WSL declined |
+| Delivery | Double-click **`.exe`** with the payload **compiled in**, shipped as a GitHub **Release asset from a private repo** |
+| Competency gate | **First question**, 4 tiers (Never used a terminal · New to this · Some experience · Experienced) → drives verbosity + defaults |
 | Multi-agent depth | **Approach C** — deterministic core + fully-scripted proven agents + hand-to-agent for the rest |
 | Obsidian / vault | Optional opt-in module with a **clean starter vault** (never personal content) |
 | Installer UX | Guided, **explained** picker — each choice says what it does + why + cost |
@@ -63,7 +68,10 @@ The tagline is literal: *the ground crew that gets your agent off the ground.*
 
 ```
 groundcrew/
-  bootstrap.ps1            # Windows side: WSL2 + Ubuntu + Obsidian prep, then hands into WSL
+  windows/                 # Windows entry (compiled to the double-click .exe)
+    bootstrap.ps1          # WSL gate → install WSL/Ubuntu/Obsidian → unpack payload → run install.sh
+    build-exe.ps1          # ps2exe build: embeds the bash payload, emits the release .exe
+    native-lite.ps1        # winget reduced install when WSL is declined (§11a)
   install.sh              # WSL entry point — orchestrates modules, drives the explained picker
   core/
     base.sh               # git, gh, curl, wget, unzip, ca-certificates, build-essential,
@@ -71,7 +79,7 @@ groundcrew/
     python.sh             # python3, pip, uv, pipx, ruff, pyright
     node.sh               # Node 20 (nvm-managed), npm
     terminal-qol.sh       # ripgrep, fd, fzf, bat
-    graphify.sh           # graphify + graphify-mcp
+    graphify.sh           # graphify via PyPI pkg `graphifyy[mcp]` (graphify CLI + runnable graphify-mcp)
     path.sh               # idempotent PATH wiring into ~/.bashrc
   agents/
     claude-code.sh        # FULLY scripted: CLI, 11 official plugins (incl. superpowers), MCP, hooks
@@ -106,10 +114,13 @@ groundcrew/
 
 ## 6. Install flow
 
-1. **`bootstrap.ps1`** (Windows, elevated): enable WSL2 features, `wsl --install -d Ubuntu`,
-   install Obsidian (if the vault module is wanted), drop the repo into WSL, hand off into
-   `install.sh`. The existing **Support Gateway** path remains a supported fallback for
-   remote/assisted installs (as used for Luke).
+1. **Delivery = a double-click `.exe`** (a compiled PowerShell bootstrap with the bash payload
+   embedded, shipped as a GitHub Release asset from the private repo). On launch it: (a) asks the
+   **competency** question (§7); (b) checks for WSL2 — if absent, shows a **"strongly recommend
+   WSL because …"** gate; (c) **if accepted:** enable WSL2, `wsl --install -d Ubuntu`, install
+   Obsidian (if the vault module is wanted), unpack the payload into WSL, open a WSL window running
+   `install.sh`; (d) **if WSL declined:** run the **native-Windows-lite** path (§11a). The
+   **Support Gateway** path remains a fallback for remote/assisted installs (as used for Luke).
 2. **`install.sh`** (inside WSL):
    1. Run all `core/*` modules (idempotent).
    2. **Detect / prompt** which agent(s) the user has → run `agents/claude-code.sh` and/or
@@ -144,6 +155,10 @@ toggle with plain-language copy so the user chooses deliberately, not blindly.
   *"I use another agent"* (hand-to-agent), so the user understands what they are wiring. The agent
   screen also explains **subscription vs API-key billing**, so nobody accidentally opts into
   pay-per-token pricing.
+- **Competency (first screen):** 4 tiers — *Never used a terminal · New to this · Some experience ·
+  Experienced* — asked before anything else. It sets the default preset and how much the picker
+  explains: the two beginner tiers get the onboarding primer, full what/why copy, and the
+  `recommended` preset pre-selected; experienced tiers get terse prompts and can jump to `everything`.
 - **Quick-picks / defaults:** `minimal` · `recommended` (graphify + vault pre-checked) · `everything`.
   Core (toolchain) is always on and not a toggle.
 - **Review screen** before anything installs: the full selection + total download size + one confirm.
@@ -158,7 +173,7 @@ Obsidian, and the agent options actually give them.
 - **Python (always):** python3, pip, uv, pipx, ruff, pyright
 - **Node (always):** Node 20 (nvm-managed), npm
 - **Terminal QoL (always):** ripgrep, fd, fzf, bat
-- **Agent core (always):** graphify + graphify-mcp, then the selected agent CLIs
+- **Agent core (always):** graphify — installed from **`graphifyy[mcp]`** (double-y; the `mcp` extra pulls in the deps that make the bundled `graphify-mcp` server runnable, alongside the `graphify` CLI) — then the selected agent CLIs
 - **PATH wiring (always):** `~/.local/bin`, `~/bin`, npm-global bin, uv, pipx, nvm → `~/.bashrc`,
   written idempotently (no duplicate appends on re-run)
 - **Optional opt-in modules (prompted via the explained picker):**
@@ -233,6 +248,21 @@ Ships a **clean** vault via `optional/vault.sh` + `vault-template/`:
 - Gives the agent **cross-session memory** + project tracking (directly answers the "no memory
   between sessions" struggle).
 - **Never** ships personal Obsidian content. Fully skippable.
+
+## 11a. Native-Windows-lite fallback (WSL declined)
+
+If the user declines WSL after the recommendation gate, Groundcrew does **not** fail — it runs a
+**reduced** native-Windows path that installs only what genuinely works without a POSIX shell:
+
+- **Installed (via winget):** the chosen agent CLI (Claude Code / opencode), Node, Python, git, plus
+  ripgrep/fd/jq where a Windows build exists.
+- **Shipped:** the markdown rules/practices (`rules/AGENTS.md` + the practices) and the onboarding
+  docs — agent-agnostic text that works anywhere.
+- **NOT available (stated up front):** graphify-mcp, the bash guardrail hooks (e.g. the
+  destructive-git guard as a hook), and the Obsidian bridge — all assume a POSIX shell. The user is
+  told exactly what they give up.
+- **Framing:** WSL is the full experience; native-lite is a deliberately smaller, honestly-labelled
+  subset. Full native parity is a future phase (§17), pursued only on real demand.
 
 ## 12. Idempotency & verification
 
@@ -310,10 +340,15 @@ of people new to agentic coding. Status: **Covered** (handled by design / the pr
 - A first-timer can follow the onboarding primer from a bare terminal to a first working task.
 - Adding a new agent requires only a new `agents/prompts/<agent>.md`, no core changes.
 - Liam completes a first install (guided by checklist) on Kimi K3 via opencode.
+- The double-click `.exe` takes a clean Windows machine through the WSL gate to a running `install.sh`.
+- Declining WSL yields a working native-lite install of the essentials, with the reduced-scope
+  trade-offs clearly shown.
+- The competency question is asked first and visibly changes verbosity + defaults.
 
 ## 17. Future extension points (out of scope now, designed-for)
 
 - Public website that serves the installer (`groundcrew.sh`).
 - Licensing / gating layer.
 - macOS + native Linux install paths.
+- Full native-Windows parity (beyond the native-lite subset).
 - Deterministic (fully-scripted) adapters for Codex / Gemini / Kimi, replacing their prompts.
