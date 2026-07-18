@@ -3,12 +3,19 @@ setup() {
   cd "$REPO_ROOT"
   export GROUNDCREW_NO_COLOR=1
   export GROUNDCREW_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  # Fake apt-get/curl/uv/nvm on a stub PATH that logs invocations.
+  # Fake apt-get/curl/uv on a stub PATH that logs invocations.
   STUB="$BATS_TEST_TMPDIR/bin"; mkdir -p "$STUB"
-  for c in apt-get sudo curl uv pipx; do
+  for c in apt-get sudo curl uv; do
     printf '#!/usr/bin/env bash\necho "%s $*" >> "%s/calls.log"\n' "$c" "$BATS_TEST_TMPDIR" > "$STUB/$c"
     chmod +x "$STUB/$c"
   done
+  # pipx stub: log, and on `install <tool>` materialise the binary so
+  # _python__pipx_tool's post-install check passes hermetically (independent of
+  # the runner's real HOME / ~/.local/bin).
+  export PIPX_BIN_DIR="$BATS_TEST_TMPDIR/pipxbin"; mkdir -p "$PIPX_BIN_DIR"
+  printf '#!/usr/bin/env bash\necho "pipx $*" >> "%s/calls.log"\nif [ "$1" = install ]; then : > "%s/$2"; chmod +x "%s/$2"; fi\nexit 0\n' \
+    "$BATS_TEST_TMPDIR" "$PIPX_BIN_DIR" "$PIPX_BIN_DIR" > "$STUB/pipx"
+  chmod +x "$STUB/pipx"
   export PATH="$STUB:$PATH"
 }
 
