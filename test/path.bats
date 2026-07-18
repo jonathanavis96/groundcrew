@@ -26,6 +26,15 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; RC="$
   [[ "$output" == *"$HOME/.local/bin"* ]]
 }
 
+@test "activate survives an nvm.sh that exits non-zero (set -e safe)" {
+  H="$BATS_TEST_TMPDIR/home"; mkdir -p "$H/.nvm"
+  # A fake nvm that emits a warning and returns non-zero (like a .npmrc prefix clash).
+  printf 'echo "nvm warning" >&2\nfalse\n' > "$H/.nvm/nvm.sh"
+  run env HOME="$H" bash -c 'set -euo pipefail; source lib/log.sh; source core/path.sh; path::activate; echo REACHED_END'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REACHED_END"* ]]
+}
+
 @test "wire_shells wires ~/.bashrc on linux only" {
   H="$BATS_TEST_TMPDIR/home"; mkdir -p "$H"
   run env HOME="$H" GROUNDCREW_OS=linux bash -c 'source lib/log.sh; source lib/detect.sh; source core/path.sh; path::wire_shells'
