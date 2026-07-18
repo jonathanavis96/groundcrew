@@ -27,7 +27,7 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
 }
 
 @test "unknown preset exits 2" {
-  run bash -c 'source lib/catalog.sh; source lib/picker.sh; picker::preset bogus'
+  run bash -c 'source lib/log.sh; source lib/catalog.sh; source lib/picker.sh; picker::preset bogus'
   [ "$status" -eq 2 ]
 }
 
@@ -63,6 +63,6 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
 }
 
 @test "unknown tier exits 4" {
-  run bash -c 'source lib/catalog.sh; source lib/picker.sh; picker::competency_default bogus'
+  run bash -c 'source lib/log.sh; source lib/catalog.sh; source lib/picker.sh; picker::competency_default bogus'
   [ "$status" -eq 4 ]
 }
