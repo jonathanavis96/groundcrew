@@ -18,6 +18,17 @@ EOF
   log::ok "wired PATH into $rc"
 }
 
+# Wire PATH into every shell rc the user is likely to open: always ~/.bashrc, and
+# ~/.zshrc as well on macOS (where zsh is the default login shell) so a fresh
+# Terminal picks up the toolchain. Each wire is idempotent.
+path::wire_shells() {
+  path::wire "$HOME/.bashrc" || return 1
+  if [[ "$(os::detect)" == macos ]]; then
+    path::wire "$HOME/.zshrc" || return 1
+  fi
+  return 0
+}
+
 # Activate the installed toolchain in the CURRENT process (PATH + nvm), so later
 # install steps and a same-process VERIFY can find uv/node/tools. path::wire persists
 # this for future interactive shells; path::activate is the in-process equivalent

@@ -37,6 +37,8 @@ fi
 
 # shellcheck source=lib/guard.sh
 source "$HERE/lib/guard.sh"
+# shellcheck source=lib/detect.sh
+source "$HERE/lib/detect.sh"   # os::detect — the core modules branch on it, so source before running them
 for m in base python node graphify path; do
   # shellcheck disable=SC1090
   source "$HERE/core/$m.sh"
@@ -48,11 +50,8 @@ python::install
 node::install
 path::activate
 graphify::install
-# shellcheck disable=SC2119 # path::wire's optional $1 is an rc-path override (tests only), not install.sh's own $1
-path::wire
+path::wire_shells
 
-# shellcheck source=lib/detect.sh
-source "$HERE/lib/detect.sh"
 # shellcheck source=VERIFY.sh
 source "$HERE/VERIFY.sh"
 verify::run
