@@ -22,3 +22,9 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
   run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --bogus'
   [ "$status" -ne 0 ]
 }
+
+@test "--preset with no value exits 64, not an unbound-variable crash" {
+  run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --preset'
+  [ "$status" -eq 64 ]
+  [[ "$output" != *"unbound variable"* ]]
+}

@@ -15,10 +15,11 @@ Usage: install.sh [options]
 EOF
 }
 
+# --preset / --core-only are parsed now but only affect agent/optional selection in Phase 2+
 PRESET=recommended DRY=0 CORE_ONLY=0
 while (( $# )); do
   case "$1" in
-    --preset) PRESET="$2"; shift 2 ;;
+    --preset) [[ $# -ge 2 ]] || { log::error "--preset requires a value"; usage; exit 64; }; PRESET="$2"; shift 2 ;;
     --core-only) CORE_ONLY=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --help|-h) usage; exit 0 ;;
