@@ -28,3 +28,15 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
   [ "$status" -eq 64 ]
   [[ "$output" != *"unbound variable"* ]]
 }
+
+@test "--module with no value exits 64" {
+  run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --module'
+  [ "$status" -eq 64 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "--module with an unknown name exits 64" {
+  run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --module nope-not-real'
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"unknown module"* ]]
+}
