@@ -4,9 +4,9 @@ python::install() {
 }
 _python__do() {
   log::step "Installing Python toolchain"
-  sudo apt-get install -y python3 python3-pip python3-venv pipx
+  sudo apt-get install -y python3 python3-pip python3-venv pipx || return 1
   pipx ensurepath || true
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  curl -LsSf https://astral.sh/uv/install.sh | sh || return 1
   # ruff + pyright as isolated tools
   pipx install ruff || true
   pipx install pyright || true

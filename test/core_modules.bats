@@ -33,3 +33,11 @@ setup() {
   [ "$status" -eq 0 ]
   grep -Eq 'uv|pipx' "$BATS_TEST_TMPDIR/calls.log"
 }
+
+@test "base::install fails and does not write the done marker when apt-get fails" {
+  printf '#!/usr/bin/env bash\necho "sudo $*" >> "%s/calls.log"\nexit 1\n' "$BATS_TEST_TMPDIR" > "$STUB/sudo"
+  chmod +x "$STUB/sudo"
+  run bash -c 'source lib/log.sh; source lib/guard.sh; source core/base.sh; base::install'
+  [ "$status" -ne 0 ]
+  [ ! -f "$GROUNDCREW_STATE_DIR/core-base" ]
+}

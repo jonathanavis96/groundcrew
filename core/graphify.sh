@@ -4,6 +4,6 @@ graphify::install() {
 }
 _graphify__do() {
   log::step "Installing graphify"
-  uv tool install graphify
+  uv tool install graphify || return 1
   log::ok "graphify installed"
 }

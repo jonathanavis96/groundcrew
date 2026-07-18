@@ -4,10 +4,10 @@ base::install() {
 }
 _base__do() {
   log::step "Installing base toolchain"
-  sudo apt-get update -y
+  sudo apt-get update -y || return 1
   sudo apt-get install -y \
     git gh curl wget unzip ca-certificates build-essential pkg-config \
-    jq sqlite3 shellcheck tmux ripgrep fzf fd-find bat
+    jq sqlite3 shellcheck tmux ripgrep fzf fd-find bat || return 1
   mkdir -p "$HOME/.local/bin"
   # Ubuntu ships fd as fdfind and bat as batcat; give them their canonical names.
   [[ -e /usr/bin/fdfind ]] && ln -sf /usr/bin/fdfind "$HOME/.local/bin/fd"
