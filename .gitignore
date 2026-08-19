@@ -2,3 +2,6 @@ test/tmp/
 *.log
 docs/plans/
 docs/superpowers/
+__pycache__/
+*.pyc
+dave-claude-kit-prompt.md

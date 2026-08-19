@@ -10,7 +10,7 @@ usage() {
 Usage: install.sh [options]
   --preset NAME    minimal | recommended | everything (default: recommended)
   --core-only      install core toolchain only (Phase 1)
-  --module NAME    install a single optional module (see modules/): vault | playwright | docker | media
+  --module NAME    install a single optional module (see modules/): claude-kit | vault | playwright | docker | media
   --dry-run        print the plan without executing
   --help           show this help
 EOF

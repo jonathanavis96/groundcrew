@@ -137,3 +137,110 @@ setup() {
   [ "$status" -ne 0 ]
   [ ! -f "$GROUNDCREW_STATE_DIR/optional-media" ]
 }
+
+# --- claude-kit -------------------------------------------------------------
+
+# Shorthand: source the deps + module and run the installer, as install.sh does.
+_ck() {
+  bash -c 'source lib/log.sh; source lib/guard.sh; source modules/claude-kit.sh; "claude-kit::install"'
+}
+
+@test "claude-kit::install lays down agents, CLAUDE.md, hooks and cache-guard" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  for a in worker scout scout-find Explore fable; do
+    [ -f "$GROUNDCREW_CLAUDE_DIR/agents/$a.md" ]
+  done
+  [ -f "$GROUNDCREW_CLAUDE_DIR/CLAUDE.md" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/references/on-demand.md" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/hooks/webfetch-guard.py" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/hooks/session-context.py" ]
+  [ -x "$GROUNDCREW_CLAUDE_DIR/cache-guard/scripts/ccg.py" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/cache-guard/config.json" ]
+  [ -f "$GROUNDCREW_STATE_DIR/optional-claude-kit" ]
+}
+
+@test "claude-kit::install ships the caveman hook as BOTH .sh and .ps1" {
+  # A .sh-only hook is a silent no-op on native Windows, not a degraded install.
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ -x "$GROUNDCREW_CLAUDE_DIR/hooks/caveman-autostart.sh" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/hooks/caveman-autostart.ps1" ]
+}
+
+@test "claude-kit::install ships ship-to-main inert, with its RULES.md marker" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/skills/ship-to-main/SKILL.md" ]
+  grep -q "GROUNDCREW-UNCONFIGURED" "$GROUNDCREW_CLAUDE_DIR/skills/ship-to-main/RULES.md"
+}
+
+@test "claude-kit::install never writes settings.json, only settings-additions.json" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  mkdir -p "$GROUNDCREW_CLAUDE_DIR"
+  echo '{"mine":true}' > "$GROUNDCREW_CLAUDE_DIR/settings.json"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ "$(cat "$GROUNDCREW_CLAUDE_DIR/settings.json")" = '{"mine":true}' ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/settings-additions.json" ]
+}
+
+@test "claude-kit::install backs up an existing file instead of clobbering it" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  mkdir -p "$GROUNDCREW_CLAUDE_DIR"
+  echo "my own agreements" > "$GROUNDCREW_CLAUDE_DIR/CLAUDE.md"
+  run _ck
+  [ "$status" -eq 0 ]
+  # The payload landed...
+  grep -q "Working Agreements" "$GROUNDCREW_CLAUDE_DIR/CLAUDE.md"
+  # ...and the user's original survives in a timestamped sibling.
+  local backup
+  backup=$(echo "$GROUNDCREW_CLAUDE_DIR"/CLAUDE.md.bak-*)
+  [ -f "$backup" ]
+  [ "$(cat "$backup")" = "my own agreements" ]
+}
+
+@test "claude-kit::install skips the vault tier unless it is opted into" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ ! -d "$GROUNDCREW_CLAUDE_DIR/vault-kit" ]
+  [ ! -f "$GROUNDCREW_CLAUDE_DIR/hooks/claude-vault-memory-gate.py" ]
+}
+
+@test "claude-kit::install installs the vault tier when opted into" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  export GROUNDCREW_CLAUDE_KIT_VAULT=1
+  run _ck
+  [ "$status" -eq 0 ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/vault-kit/vault_lint.py" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/vault-kit/stop_vault_lint.py" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/hooks/vault-slug-wikilink-guard.py" ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/hooks/claude-vault-memory-gate.py" ]
+  # A real API key must never ship in the payload.
+  grep -q "PASTE-YOUR-LOCAL-REST-API-KEY-HERE" "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json"
+}
+
+@test "claude-kit::install fails when the payload directory is missing" {
+  # Copy the module somewhere with no sibling payload/ — the module resolves the
+  # payload relative to its own BASH_SOURCE, so this is a genuine missing-payload
+  # run rather than a stubbed one.
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  cp modules/claude-kit.sh "$BATS_TEST_TMPDIR/claude-kit.sh"
+  run bash -c "source lib/log.sh; source lib/guard.sh; source '$BATS_TEST_TMPDIR/claude-kit.sh'; \"claude-kit::install\""
+  [ "$status" -ne 0 ]
+  [ ! -f "$GROUNDCREW_STATE_DIR/optional-claude-kit" ]
+}
+
+@test "claude-kit::install second run is a no-op" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  _ck
+  echo "user edit" >> "$GROUNDCREW_CLAUDE_DIR/CLAUDE.md"
+  run _ck
+  [ "$status" -eq 0 ]
+  grep -q "user edit" "$GROUNDCREW_CLAUDE_DIR/CLAUDE.md"
+}
