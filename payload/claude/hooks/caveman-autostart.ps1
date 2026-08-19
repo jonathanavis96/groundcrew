@@ -29,14 +29,27 @@ if ($lines.Count -eq 0) { exit 0 }
 
 # Strip a leading YAML frontmatter block: '---' on the first line, up to the
 # next '---'. If the file has no frontmatter, keep every line.
+#
+# $closed tracks whether the block actually terminated. Do NOT infer that from
+# $start still being 0 — that is also its value when there was no frontmatter at
+# all, and conflating the two makes an unterminated block fall through and emit
+# the raw YAML as session context.
 $start = 0
-if ($lines[0].Trim() -eq '---') {
+$closed = $false
+$hasFrontmatter = $lines[0].Trim() -eq '---'
+if ($hasFrontmatter) {
     for ($i = 1; $i -lt $lines.Count; $i++) {
-        if ($lines[$i].Trim() -eq '---') { $start = $i + 1; break }
+        if ($lines[$i].Trim() -eq '---') {
+            $start = $i + 1
+            $closed = $true
+            break
+        }
     }
 }
-# Nothing after the frontmatter (or the block never closed): inject nothing
-# rather than an empty-bodied context.
+# A frontmatter block that never closes means the file is malformed. Inject
+# nothing rather than leaking the YAML. Same for a file with nothing after a
+# properly closed block. The .sh twin takes both branches identically.
+if ($hasFrontmatter -and (-not $closed)) { exit 0 }
 if ($start -ge $lines.Count) { exit 0 }
 $body = ($lines[$start..($lines.Count - 1)]) -join "`n"
 
