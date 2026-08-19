@@ -17,19 +17,27 @@ $skill = Join-Path $env:USERPROFILE '.claude\skills\caveman\SKILL.md'
 if (-not (Test-Path -LiteralPath $skill)) { exit 0 }
 
 try {
-    $lines = Get-Content -LiteralPath $skill -Encoding UTF8
+    # @(...) forces an array. Without it, PowerShell 5.1's Get-Content returns a
+    # plain [string] for a single-line file and $null for an empty one — and
+    # since a scalar still answers .Count, the slice below would silently index
+    # into the STRING and hand back one character instead of the skill body.
+    $lines = @(Get-Content -LiteralPath $skill -Encoding UTF8)
 } catch {
     exit 0
 }
+if ($lines.Count -eq 0) { exit 0 }
 
 # Strip a leading YAML frontmatter block: '---' on the first line, up to the
 # next '---'. If the file has no frontmatter, keep every line.
 $start = 0
-if ($lines.Count -gt 0 -and $lines[0].Trim() -eq '---') {
+if ($lines[0].Trim() -eq '---') {
     for ($i = 1; $i -lt $lines.Count; $i++) {
         if ($lines[$i].Trim() -eq '---') { $start = $i + 1; break }
     }
 }
+# Nothing after the frontmatter (or the block never closed): inject nothing
+# rather than an empty-bodied context.
+if ($start -ge $lines.Count) { exit 0 }
 $body = ($lines[$start..($lines.Count - 1)]) -join "`n"
 
 $context = "$body`n`nARGUMENTS: $level`n"
