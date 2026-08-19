@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Obsidian MCP server config. Merge the 'mcpServers' entry into your own",
+    "~/.claude/mcp.json (or add it with: claude mcp add). NEVER commit a real",
+    "API key — OBSIDIAN_API_KEY below is a placeholder.",
+    "",
+    "Prerequisites you must do by hand (no agent can do them for you):",
+    "  1. Install the Obsidian desktop app and open your vault in it.",
+    "  2. Community plugins -> browse -> install and enable 'Local REST API'.",
+    "  3. Open its settings, copy the API key, and paste it below.",
+    "",
+    "The server talks to https://127.0.0.1:27124 — Obsidian's Local REST API",
+    "on the loopback interface. On a machine where Claude Code and Obsidian",
+    "share one loopback (i.e. anything that is not WSL talking to a Windows",
+    "Obsidian) that is all it takes; no port bridge is involved.",
+    "",
+    "'command' assumes uv is installed (uvx ships with it). If it is not, run",
+    "  pip install mcp-obsidian",
+    "and change command to \"mcp-obsidian\" with \"args\": []."
+  ],
+  "mcpServers": {
+    "obsidian": {
+      "command": "uvx",
+      "args": ["--from", "mcp-obsidian", "mcp-obsidian"],
+      "env": {
+        "OBSIDIAN_HOST": "127.0.0.1",
+        "OBSIDIAN_API_KEY": "PASTE-YOUR-LOCAL-REST-API-KEY-HERE"
+      }
+    }
+  }
+}

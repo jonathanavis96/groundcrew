@@ -1,0 +1,95 @@
+{
+  "_comment": [
+    "MERGE these keys into an existing ~/.claude/settings.json — never replace",
+    "the file. It already holds plugins, model choice and permissions that must",
+    "survive. Back it up to a timestamped copy before touching it.",
+    "",
+    "autoCompactWindow: how full the context window gets before Claude Code",
+    "auto-compacts, IN TOKENS. Legal range 100000-1000000. When unset, Claude",
+    "Code uses a window tuned for the model, which is much higher — around 967K",
+    "for Sonnet 5 on the 1M context window. Setting 300000 therefore compacts",
+    "substantially EARLIER than stock. The trade is real and it goes both ways:",
+    "a shorter live context in exchange for materially lower cost per session.",
+    "Raise it (e.g. 500000) if you find yourself losing context you needed;",
+    "delete the key entirely to go back to the model default.",
+    "",
+    "autoCompactEnabled must stay true — autoCompactWindow does nothing without",
+    "it.",
+    "",
+    "The hooks below are the base tier. Add the vault and opt-in hooks only if",
+    "you installed those tiers."
+  ],
+  "autoCompactEnabled": true,
+  "autoCompactWindow": 300000,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/webfetch-guard.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/cache-guard/scripts/ccg.py hook-stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/cache-guard/scripts/ccg.py hook-precompact",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/cache-guard/scripts/ccg.py hook-prompt",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/cache-guard/scripts/ccg.py hook-session-start",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/cache-guard/scripts/ccg.py hook-session-end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "ttl_seconds": 300,
+  "warn_after_seconds": 260,
+  "cold_after_seconds": 300,
+  "toast_cooldown_seconds": 240,
+  "watcher_poll_seconds": 15,
+  "min_context_tokens_to_block": 200000,
+  "min_transcript_bytes_to_block": 650000,
+  "handoff_max_chars": 9500,
+  "jsonl_tail_bytes": 2500000,
+  "recent_user_prompts": 8,
+  "recent_assistant_messages": 6,
+  "recent_commands": 15,
+  "recent_files": 80,
+  "git_command_timeout_seconds": 2,
+  "allow_bypass_phrase": "[cache-guard-bypass]",
+  "allowed_cold_prompts": [
+    "/clear",
+    "/compact",
+    "/exit",
+    "/quit",
+    "/help",
+    "/hooks"
+  ],
+  "notify_title": "Claude cache guard",
+  "stale_session_hours": 18,
+  "pending_clear_max_age_seconds": 60
+}
