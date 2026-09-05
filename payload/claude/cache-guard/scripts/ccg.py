@@ -24,10 +24,10 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "ttl_seconds": 300,
-    "warn_after_seconds": 260,
-    "cold_after_seconds": 305,
-    "toast_cooldown_seconds": 240,
+    "ttl_seconds": 3600,
+    "warn_after_seconds": 3300,
+    "cold_after_seconds": 3570,
+    "toast_cooldown_seconds": 1800,
     "watcher_poll_seconds": 15,
     "min_context_tokens_to_block": 100000,
     "min_transcript_bytes_to_block": 650000,
@@ -905,7 +905,7 @@ def watcher_once() -> int:
         if stage == "warming":
             body = f"Cache nearly cold for {state.get('cwd','')}. Handoff ready. Consider /clear if you pause."
         else:
-            body = f"Cache is cold for a large Claude session. Next normal prompt will be blocked; run /clear to auto-restore handoff."
+            body = "Cache is cold for a large Claude session. Next normal prompt will be blocked; run /clear to auto-restore handoff."
         if make_notification(title, body):
             warned += 1
         else:
