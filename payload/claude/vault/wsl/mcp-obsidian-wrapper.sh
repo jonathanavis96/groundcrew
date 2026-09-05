@@ -57,8 +57,10 @@ trap 'cleanup; exit 143' INT TERM
 # Wait for OUR forwarder to bind before mcp-obsidian fires off requests. A
 # successful probe only counts while FWD_PID is still alive; a dead forwarder
 # (bind failed) means the port belongs to someone else, so bail out.
+# Allow up to 5 s: python3 startup plus the asyncio import can exceed a second
+# on a cold cache or a busy box.
 BOUND=0
-for _ in 1 2 3 4 5 6 7 8 9 10; do
+for _ in $(seq 1 50); do
     if ! kill -0 "$FWD_PID" 2>/dev/null; then
         echo "mcp-obsidian-wrapper: forwarder exited before binding 127.0.0.1:$LISTEN_PORT" >&2
         exit 1
@@ -70,13 +72,15 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 0.1
 done
 if [[ "$BOUND" -ne 1 ]]; then
-    echo "mcp-obsidian-wrapper: forwarder did not bind 127.0.0.1:$LISTEN_PORT within 1s" >&2
+    echo "mcp-obsidian-wrapper: forwarder did not bind 127.0.0.1:$LISTEN_PORT within 5s" >&2
     exit 1
 fi
 
 export OBSIDIAN_HOST="127.0.0.1"
 export OBSIDIAN_PORT="$LISTEN_PORT"
-uvx --from mcp-obsidian mcp-obsidian &
+# Explicit "<&0": a background job in a non-interactive shell otherwise gets
+# its stdin from /dev/null, which would sever the MCP stdio transport.
+uvx --from mcp-obsidian mcp-obsidian <&0 &
 MCP_PID=$!
 STATUS=0
 wait "$MCP_PID" || STATUS=$?
