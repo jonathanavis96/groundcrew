@@ -98,6 +98,13 @@ _claude_kit__install_vault() {
     [[ -f "$f" ]] || continue
     _claude_kit__copy "$f" "$dest/vault-kit/$(basename "$f")" || return 1
   done
+  # WSL2 -> Windows Obsidian bridge (wrapper + TCP forwarder). Harmless elsewhere.
+  mkdir -p "$dest/vault-kit/wsl" || return 1
+  for f in "$payload_dir"/vault/wsl/*; do
+    [[ -f "$f" ]] || continue
+    _claude_kit__copy "$f" "$dest/vault-kit/wsl/$(basename "$f")" || return 1
+  done
+  chmod +x "$dest/vault-kit/wsl/mcp-obsidian-wrapper.sh" 2>/dev/null || true
   for f in vault-slug-wikilink-guard.py claude-vault-memory-gate.py; do
     _claude_kit__copy "$payload_dir/hooks/$f" "$dest/hooks/$f" || return 1
   done
