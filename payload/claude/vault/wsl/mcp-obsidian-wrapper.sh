@@ -34,16 +34,32 @@ FORWARDER_LISTEN_PORT=27124 \
 FORWARDER_TARGET_PORT=27124 \
     python3 "$HERE/mcp-obsidian-forwarder.py" >&2 &
 FWD_PID=$!
-trap 'kill "$FWD_PID" 2>/dev/null || true' EXIT INT TERM
+MCP_PID=""
+
+# Kill both children on exit. mcp-obsidian runs as a child (not exec) so this
+# trap still fires when it exits and the forwarder never outlives the session
+# or keeps port 27124 bound for a later run against a stale gateway.
+# shellcheck disable=SC2317  # invoked via trap
+cleanup() {
+    if [[ -n "$MCP_PID" ]]; then kill "$MCP_PID" 2>/dev/null || true; fi
+    kill "$FWD_PID" 2>/dev/null || true
+    wait "$FWD_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'cleanup; exit 143' INT TERM
 
 # Wait for the listener to bind before mcp-obsidian fires off requests.
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if exec 3<>/dev/tcp/127.0.0.1/27124 2>/dev/null; then
-        exec 3<&-; exec 3>&-
+    if (exec 3<>/dev/tcp/127.0.0.1/27124) 2>/dev/null; then
         break
     fi
     sleep 0.1
 done
 
 export OBSIDIAN_HOST="127.0.0.1"
-exec uvx --from mcp-obsidian mcp-obsidian
+uvx --from mcp-obsidian mcp-obsidian &
+MCP_PID=$!
+STATUS=0
+wait "$MCP_PID" || STATUS=$?
+MCP_PID=""
+exit "$STATUS"
