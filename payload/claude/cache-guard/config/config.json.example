@@ -1,8 +1,8 @@
 {
-  "ttl_seconds": 300,
-  "warn_after_seconds": 260,
-  "cold_after_seconds": 300,
-  "toast_cooldown_seconds": 240,
+  "ttl_seconds": 3600,
+  "warn_after_seconds": 3300,
+  "cold_after_seconds": 3570,
+  "toast_cooldown_seconds": 1800,
   "watcher_poll_seconds": 15,
   "min_context_tokens_to_block": 200000,
   "min_transcript_bytes_to_block": 650000,
