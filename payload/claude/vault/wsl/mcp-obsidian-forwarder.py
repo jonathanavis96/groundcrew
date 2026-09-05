@@ -5,7 +5,7 @@ TCP forwarder: bridges 127.0.0.1:LISTEN_PORT inside WSL to TARGET_HOST:TARGET_PO
 Why this exists: mcp-obsidian hardcodes host='127.0.0.1' and ignores
 OBSIDIAN_HOST, and under WSL2 NAT networking WSL's loopback is not Windows'
 loopback. Windows is only reachable at the gateway IP, so this forwarder
-makes 127.0.0.1:27124 inside WSL land on <gateway>:27124.
+makes 127.0.0.1:<FORWARDER_LISTEN_PORT> inside WSL land on <gateway>:27124.
 
 It only works if Obsidian's Local REST API plugin binds to 0.0.0.0 (its
 default, 127.0.0.1, is invisible from WSL) and Windows Firewall allows
