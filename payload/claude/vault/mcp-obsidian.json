@@ -11,8 +11,14 @@
     "",
     "The server talks to https://127.0.0.1:27124 — Obsidian's Local REST API",
     "on the loopback interface. On a machine where Claude Code and Obsidian",
-    "share one loopback (i.e. anything that is not WSL talking to a Windows",
-    "Obsidian) that is all it takes; no port bridge is involved.",
+    "share one loopback (macOS, native Linux, native Windows) that is all it",
+    "takes; no port bridge is involved.",
+    "",
+    "WSL2 talking to a Windows Obsidian is different: WSL's 127.0.0.1 is not",
+    "Windows' 127.0.0.1. Use wsl/mcp-obsidian-wrapper.sh as 'command' instead",
+    "(with \"args\": []). It forwards WSL loopback to the Windows gateway. It",
+    "also needs the Local REST API plugin's bindingHost set to 0.0.0.0 and an",
+    "inbound firewall rule for TCP 27124 — both explained in the wrapper.",
     "",
     "'command' assumes uv is installed (uvx ships with it). If it is not, run",
     "  pip install mcp-obsidian",
@@ -21,7 +27,11 @@
   "mcpServers": {
     "obsidian": {
       "command": "uvx",
-      "args": ["--from", "mcp-obsidian", "mcp-obsidian"],
+      "args": [
+        "--from",
+        "mcp-obsidian",
+        "mcp-obsidian"
+      ],
       "env": {
         "OBSIDIAN_HOST": "127.0.0.1",
         "OBSIDIAN_API_KEY": "PASTE-YOUR-LOCAL-REST-API-KEY-HERE"

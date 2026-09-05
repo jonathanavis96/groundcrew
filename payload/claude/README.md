@@ -30,7 +30,7 @@ by the module at all — it prints the keys for you to merge.
 | `skills/caveman/` | Opt-in. A compressed reply style. |
 | `skills/full-auto/` | Opt-in. The working contract for "I've approved this, I'm stepping away." |
 | `skills/ship-to-main/` | Opt-in. Branch → commit → PR → review gate → merge. **Inert until `RULES.md` is filled in** — the gate is a named slot, not a named tool. |
-| `vault/` | Optional Obsidian tier: MCP config template, starter agent rules, the baseline-aware linter and its `Stop` gate, and the wikilink/memory guards. |
+| `vault/` | Optional Obsidian tier: MCP config template, starter agent rules, the baseline-aware linter and its `Stop` gate, and the wikilink/memory guards. `vault/wsl/` holds the WSL2 → Windows Obsidian bridge (wrapper + TCP forwarder); the plugin must bind `0.0.0.0` and the firewall must allow 27124, as the wrapper's header explains. |
 
 ## Things worth knowing before you install
 
