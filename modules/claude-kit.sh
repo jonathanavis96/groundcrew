@@ -1,8 +1,11 @@
 # shellcheck shell=bash
-# Installs the ~/.claude configuration layer (agents, working agreements, hooks,
-# skills, cache-guard) from payload/claude. Never clobbers: an existing file is
-# backed up to a timestamped sibling before being replaced, and settings.json is
-# never edited — the keys to merge are printed instead.
+# Installs the Claude Code CLI, the official plugin marketplace, and the
+# ~/.claude configuration layer (agents, working agreements, hooks, skills,
+# cache-guard) from payload/claude. Never clobbers: an existing file is backed
+# up to a timestamped sibling before being replaced, and an existing
+# settings.json is never edited — the keys to merge are printed instead. A
+# host with no settings.json at all gets one written outright (see
+# _claude_kit__settings_notice).
 # install.sh dispatches "${MODULE}::install", so the entry point has to carry
 # the module's hyphenated name.
 claude-kit::install() {
@@ -20,11 +23,86 @@ _claude_kit__do() {
   fi
 
   log::step "Installing claude-kit into $dest"
+  _claude_kit__install_cli || return 1
+  _claude_kit__install_plugins || return 1
   _claude_kit__install_base "$payload_dir" "$dest" || return 1
   _claude_kit__install_optional "$payload_dir" "$dest" || return 1
   _claude_kit__install_vault "$payload_dir" "$dest" || return 1
   _claude_kit__settings_notice "$payload_dir" "$dest" || return 1
   log::ok "claude-kit installed"
+}
+
+# The Claude Code CLI itself. Installed via its npm package (same global-npm
+# shape as modules/playwright.sh) so this needs the core node toolchain first.
+# Pre-auth: no logged-in session is required to install the binary.
+_claude_kit__install_cli() {
+  if guard::has_cmd claude; then
+    log::info "claude CLI already installed"
+    return 0
+  fi
+  if ! guard::has_cmd npm; then
+    log::error "npm not found — install the core node toolchain first"
+    return 1
+  fi
+  npm install -g @anthropic-ai/claude-code || return 1
+  log::ok "claude CLI installed"
+}
+
+# The curated, general-purpose subset of anthropics/claude-plugins-official —
+# not the whole marketplace. That marketplace carries hundreds of entries
+# (per-language LSPs, chat-channel bridges, most third-party SaaS
+# integrations), and installing all of them by default would be the wrong
+# call for a fresh workstation. This is the "11 official plugins (incl.
+# superpowers)" from docs/specs/2026-07-18-groundcrew-design.md, matched
+# against the general dev-workflow plugins (excluding per-language LSPs, chat
+# bridges and third-party SaaS connectors — context7 stays in as a
+# general-purpose docs lookup rather than a single-vendor integration).
+_CLAUDE_KIT_PLUGINS=(
+  claude-md-management
+  code-review
+  code-simplifier
+  commit-commands
+  context7
+  feature-dev
+  frontend-design
+  mattpocock-skills
+  security-guidance
+  session-report
+  superpowers
+)
+
+# Adds the marketplace and installs the curated plugin set. Pre-auth like the
+# CLI install above, so it runs in the same pass rather than being deferred to
+# a manual step. -y accepts each plugin's declared install command without an
+# interactive prompt, since provisioning runs with no TTY.
+#
+# "claude plugin marketplace add" is itself idempotent (re-adding an
+# already-known marketplace succeeds with "already on disk" rather than
+# erroring, verified against the real CLI). Each plugin install is still
+# skipped explicitly when already present — guard::run_once normally means
+# this whole module runs once per host, but the marker is just a file, and a
+# forced re-run (or a plugin installed by hand before this ever ran) should
+# not have to depend on the CLI's own repeat-install behaviour to stay a
+# no-op.
+_claude_kit__install_plugins() {
+  if ! guard::has_cmd claude; then
+    log::error "claude CLI not found — cannot install plugins"
+    return 1
+  fi
+  claude plugin marketplace add anthropics/claude-plugins-official || return 1
+  local p already_installed
+  already_installed="$(claude plugin list 2>/dev/null || true)"
+  for p in "${_CLAUDE_KIT_PLUGINS[@]}"; do
+    # Anchored on a word boundary either side: a plain substring match would
+    # report e.g. a curated "review" as already installed just because
+    # "code-review@claude-plugins-official" is present in the listing.
+    if grep -qE "(^|[[:space:]])${p}@claude-plugins-official([[:space:]]|\$)" <<<"$already_installed"; then
+      log::info "$p already installed"
+      continue
+    fi
+    claude plugin install "$p@claude-plugins-official" -y || return 1
+  done
+  log::ok "official plugin set installed"
 }
 
 # Base tier: agents, working agreements, the on-demand template, the WebFetch
@@ -111,14 +189,22 @@ _claude_kit__install_vault() {
   log::warn "vault tier: install Obsidian and enable its 'Local REST API' plugin, then put the key in $dest/vault-kit/mcp-obsidian.json"
 }
 
-# settings.json is the one file this module refuses to write. It carries the
-# user's plugins, model and permissions, and a bad merge is expensive to undo.
+# settings.json is the one file this module refuses to overwrite. It carries
+# the user's plugins, model and permissions, and a bad merge is expensive to
+# undo. When one already exists, that refusal holds exactly as before: drop
+# the additions next to it and print the hand-merge notice. When none exists
+# at all, there is nothing to merge and nothing to lose, so write it outright.
 _claude_kit__settings_notice() {
   local payload_dir="$1" dest="$2"
   _claude_kit__copy "$payload_dir/settings-additions.json" \
     "$dest/settings-additions.json" || return 1
-  log::warn "settings.json NOT modified — merge $dest/settings-additions.json into $dest/settings.json by hand"
-  log::info "back up settings.json first; the file explains what each key does"
+  if [[ -f "$dest/settings.json" ]]; then
+    log::warn "settings.json NOT modified — merge $dest/settings-additions.json into $dest/settings.json by hand"
+    log::info "back up settings.json first; the file explains what each key does"
+  else
+    cp "$payload_dir/settings-additions.json" "$dest/settings.json" || return 1
+    log::ok "no settings.json found — wrote $dest/settings.json from settings-additions.json"
+  fi
 }
 
 # Copy SRC to DEST, backing up an existing DEST to a timestamped sibling first.

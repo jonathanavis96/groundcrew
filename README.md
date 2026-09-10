@@ -58,7 +58,7 @@ Add any of these after the core install with `bash install.sh --module <name>`:
 
 | Module | What it is | Pro | Con |
 |---|---|---|---|
-| `claude-kit` | The `~/.claude` config layer: sub-agents, working agreements, a delegation ladder, hooks, cache-guard | Your agent knows which model tier to use, verifies before claiming done, and stops re-warming stale context | Opinionated; it never edits `settings.json` for you, so you merge a few keys by hand |
+| `claude-kit` | The Claude Code CLI, the curated official plugin set (incl. superpowers), and the `~/.claude` config layer: sub-agents, working agreements, a delegation ladder, hooks, cache-guard | Your agent knows which model tier to use, verifies before claiming done, and stops re-warming stale context | Opinionated; an existing `settings.json` is never edited for you, so you merge a few keys by hand — a fresh host with none gets one written outright |
 | `vault` | A starter Obsidian notes vault | Persistent notes/memory your agent can use across sessions | It's a starter template; full use wants the Obsidian app + its Local REST API plugin |
 | `playwright` | Headless browser + Chromium | Your agent can drive a real browser — scrape, test, screenshot | ~300 MB browser download |
 | `docker` | Container runtime | Run containerised apps, databases, and tools in isolation | Heavy; on macOS it's Docker Desktop (GUI + licensing), on Linux needs a re-login to use without `sudo` |

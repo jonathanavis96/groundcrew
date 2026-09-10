@@ -24,12 +24,15 @@ _media__install_ffmpeg() {
   esac
 }
 # rembg as an isolated tool, preferring uv (installed by core/python.sh) with a
-# pipx fallback for hosts that skipped that core step.
+# pipx fallback for hosts that skipped that core step. Plain "rembg" ships no
+# inference backend and fails at first use, not at install — the [cpu] extra
+# pulls the ONNX CPU runtime. Quoted: [cpu] contains glob characters the shell
+# would otherwise try to expand.
 _media__install_rembg() {
   if guard::has_cmd uv; then
-    uv tool install rembg || return 1
+    uv tool install 'rembg[cpu]' || return 1
   elif guard::has_cmd pipx; then
-    pipx install rembg || return 1
+    pipx install 'rembg[cpu]' || return 1
   else
     log::error "neither uv nor pipx found — cannot install rembg"
     return 1
