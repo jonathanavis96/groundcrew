@@ -194,6 +194,24 @@ EOF
   done
 }
 
+@test "claude-kit::install skips a plugin install when 'claude plugin list' already shows it installed" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  # A "claude" stub whose "plugin list" subcommand reports superpowers as
+  # already installed, everything else logged normally.
+  cat > "$STUB/claude" <<EOF
+#!/usr/bin/env bash
+echo "claude \$*" >> "$BATS_TEST_TMPDIR/calls.log"
+if [[ "\$1 \$2" == "plugin list" ]]; then
+  echo "superpowers@claude-plugins-official"
+fi
+EOF
+  chmod +x "$STUB/claude"
+  run _ck
+  [ "$status" -eq 0 ]
+  ! grep -q 'claude plugin install superpowers@claude-plugins-official -y' "$BATS_TEST_TMPDIR/calls.log"
+  grep -q 'claude plugin install code-review@claude-plugins-official -y' "$BATS_TEST_TMPDIR/calls.log"
+}
+
 @test "claude-kit::install lays down agents, CLAUDE.md, hooks and cache-guard" {
   export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
   run _ck

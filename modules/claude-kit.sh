@@ -50,11 +50,13 @@ _claude_kit__install_cli() {
 
 # The curated, general-purpose subset of anthropics/claude-plugins-official —
 # not the whole marketplace. That marketplace carries hundreds of entries
-# (per-language LSPs, chat-channel bridges, every SaaS integration going), and
-# installing all of them by default would be the wrong call for a fresh
-# workstation. This is the "11 official plugins (incl. superpowers)" from
-# docs/specs/2026-07-18-groundcrew-design.md, matched against the general dev
-# workflow plugins (excluding language LSPs, chat bridges and SaaS connectors).
+# (per-language LSPs, chat-channel bridges, most third-party SaaS
+# integrations), and installing all of them by default would be the wrong
+# call for a fresh workstation. This is the "11 official plugins (incl.
+# superpowers)" from docs/specs/2026-07-18-groundcrew-design.md, matched
+# against the general dev-workflow plugins (excluding per-language LSPs, chat
+# bridges and third-party SaaS connectors — context7 stays in as a
+# general-purpose docs lookup rather than a single-vendor integration).
 _CLAUDE_KIT_PLUGINS=(
   claude-md-management
   code-review
@@ -73,14 +75,28 @@ _CLAUDE_KIT_PLUGINS=(
 # CLI install above, so it runs in the same pass rather than being deferred to
 # a manual step. -y accepts each plugin's declared install command without an
 # interactive prompt, since provisioning runs with no TTY.
+#
+# "claude plugin marketplace add" is itself idempotent (re-adding an
+# already-known marketplace succeeds with "already on disk" rather than
+# erroring, verified against the real CLI). Each plugin install is still
+# skipped explicitly when already present — guard::run_once normally means
+# this whole module runs once per host, but the marker is just a file, and a
+# forced re-run (or a plugin installed by hand before this ever ran) should
+# not have to depend on the CLI's own repeat-install behaviour to stay a
+# no-op.
 _claude_kit__install_plugins() {
   if ! guard::has_cmd claude; then
     log::error "claude CLI not found — cannot install plugins"
     return 1
   fi
   claude plugin marketplace add anthropics/claude-plugins-official || return 1
-  local p
+  local p already_installed
+  already_installed="$(claude plugin list 2>/dev/null || true)"
   for p in "${_CLAUDE_KIT_PLUGINS[@]}"; do
+    if grep -q "$p@claude-plugins-official" <<<"$already_installed"; then
+      log::info "$p already installed"
+      continue
+    fi
     claude plugin install "$p@claude-plugins-official" -y || return 1
   done
   log::ok "official plugin set installed"
