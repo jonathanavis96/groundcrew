@@ -93,7 +93,10 @@ _claude_kit__install_plugins() {
   local p already_installed
   already_installed="$(claude plugin list 2>/dev/null || true)"
   for p in "${_CLAUDE_KIT_PLUGINS[@]}"; do
-    if grep -q "$p@claude-plugins-official" <<<"$already_installed"; then
+    # Anchored on a word boundary either side: a plain substring match would
+    # report e.g. a curated "review" as already installed just because
+    # "code-review@claude-plugins-official" is present in the listing.
+    if grep -qE "(^|[[:space:]])${p}@claude-plugins-official([[:space:]]|\$)" <<<"$already_installed"; then
       log::info "$p already installed"
       continue
     fi
