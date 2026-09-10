@@ -81,8 +81,11 @@ groundcrew/
     terminal-qol.sh       # ripgrep, fd, fzf, bat
     graphify.sh           # graphify via PyPI pkg `graphifyy[mcp]` (graphify CLI + runnable graphify-mcp)
     path.sh               # idempotent PATH wiring into ~/.bashrc
+  modules/
+    claude-kit.sh          # FULLY scripted: CLI, curated official plugin set (incl. superpowers),
+                          #   the ~/.claude config layer, first-run settings.json (built 2026-09-10,
+                          #   MIS-700 — this is where item 14/15 actually landed, not agents/)
   agents/
-    claude-code.sh        # FULLY scripted: CLI, 11 official plugins (incl. superpowers), MCP, hooks
     opencode.sh           # scripted install; Kimi-K3 provider/auth via checklist + hand-to-agent
     prompts/
       codex.md            # "hand this to your agent" last-mile prompts
@@ -123,7 +126,7 @@ groundcrew/
    **Support Gateway** path remains a fallback for remote/assisted installs (as used for Luke).
 2. **`install.sh`** (inside WSL):
    1. Run all `core/*` modules (idempotent).
-   2. **Detect / prompt** which agent(s) the user has → run `agents/claude-code.sh` and/or
+   2. **Detect / prompt** which agent(s) the user has → run `modules/claude-kit.sh` and/or
       `agents/opencode.sh`; for any other agent, print/open the matching `agents/prompts/*.md`.
    3. Present the **guided explained picker** (see §7) for optional modules and agents → run the
       chosen ones. Install the **practices payload** (§10) for the chosen agent(s).
@@ -190,8 +193,9 @@ opt-in so a minimal user isn't forced to download models and browsers.
 
 ## 9. Multi-agent mechanism (the core idea — Approach C)
 
-- **Claude Code** → deterministic script (`agents/claude-code.sh`): CLI, the 11 official plugins
-  (incl. superpowers), the obsidian MCP, hooks. Proven, so fully automated.
+- **Claude Code** → deterministic script (`modules/claude-kit.sh`): CLI, a curated official
+  plugin set (incl. superpowers), the ~/.claude config layer, hooks. Proven, so fully automated.
+  MCP wiring and the vault tier are separate, opt-in steps in the same module.
 - **opencode** → `agents/opencode.sh` scripts the CLI install (its own `curl … | bash`
   installer is deterministic); the model/provider auth (Kimi K3 API key) + `AGENTS.md` wiring is
   a short checklist plus a hand-to-agent prompt. opencode already reads `AGENTS.md`, which fits
@@ -214,7 +218,7 @@ applies whether the user runs Claude Code, opencode/Kimi, or another agent.
 **Delivery model.** The practices live in `rules/` (the `AGENTS.md` standard that each agent's
 native file imports) and `hooks/` (enforced guardrails). Skill-style workflows that already exist
 as the third-party **superpowers** plugin are **installed / referenced, not copied** —
-`agents/claude-code.sh` installs the plugin, and the hand-to-agent prompts point other agents at
+`modules/claude-kit.sh` installs the plugin, and the hand-to-agent prompts point other agents at
 the equivalent workflow. Only Groundcrew's own agent-agnostic rules ship in-repo, keeping the
 public repo clean and free of redistribution problems.
 
@@ -305,7 +309,7 @@ of people new to agentic coding. Status: **Covered** (handled by design / the pr
 | Never used a terminal | Covered | First-timer primer + "next 5 commands" screen + the explained picker |
 | API key vs subscription billing surprise | Covered | Auth checklist warns re `ANTHROPIC_API_KEY` override + cost model |
 | Node missing / too old | Covered | `node.sh` installs Node 20 |
-| MCP setup opaque / "Connection closed" | Covered | `claude-code.sh` wires obsidian MCP; `VERIFY.sh` checks reachability with a clear message |
+| MCP setup opaque / "Connection closed" | Covered | `claude-kit.sh` wires obsidian MCP; `VERIFY.sh` checks reachability with a clear message |
 | WSL not enabled / working from `/mnt/c` | Covered | `bootstrap.ps1` enables WSL; installer targets `~` and VERIFY warns on `/mnt/c` |
 | Wrong shell rc file | Covered | Targets `.bashrc` (Ubuntu default) |
 | Plan gating (Pro/Max required) | Covered | Auth explainer in the picker |

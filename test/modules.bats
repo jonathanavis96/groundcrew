@@ -5,7 +5,7 @@ setup() {
   export GROUNDCREW_STATE_DIR="$BATS_TEST_TMPDIR/state"
   # Fake apt-get/sudo/brew/npm/npx/uv/pipx/node on a stub PATH that logs invocations.
   STUB="$BATS_TEST_TMPDIR/bin"; mkdir -p "$STUB"
-  for c in apt-get sudo brew npm npx uv pipx node; do
+  for c in apt-get sudo brew npm npx uv pipx node claude; do
     printf '#!/usr/bin/env bash\necho "%s $*" >> "%s/calls.log"\n' "$c" "$BATS_TEST_TMPDIR" > "$STUB/$c"
     chmod +x "$STUB/$c"
   done
@@ -20,7 +20,7 @@ setup() {
   # none of these names collide with the tools under test, so symlinking the
   # real binaries in is safe and keeps the sandbox otherwise hermetic.
   ln -sf "$REAL_BASH" "$STUB/bash"
-  for c in mkdir cat rm chmod ln mv cp grep; do
+  for c in mkdir cat rm chmod ln mv cp grep dirname; do
     ln -sf "$(command -v "$c")" "$STUB/$c"
   done
 }
@@ -105,11 +105,11 @@ setup() {
 
 # --- media -----------------------------------------------------------------
 
-@test "media::install (linux) installs ffmpeg via apt-get and rembg via uv" {
+@test "media::install (linux) installs ffmpeg via apt-get and rembg[cpu] via uv" {
   run bash -c 'source lib/log.sh; source lib/guard.sh; source lib/detect.sh; source modules/media.sh; GROUNDCREW_OS=linux media::install'
   [ "$status" -eq 0 ]
   grep -q 'apt-get install -y ffmpeg' "$BATS_TEST_TMPDIR/calls.log"
-  grep -q 'uv tool install rembg' "$BATS_TEST_TMPDIR/calls.log"
+  grep -q 'uv tool install rembg\[cpu\]' "$BATS_TEST_TMPDIR/calls.log"
   [ -f "$GROUNDCREW_STATE_DIR/optional-media" ]
 }
 
@@ -117,17 +117,17 @@ setup() {
   run bash -c 'source lib/log.sh; source lib/guard.sh; source lib/detect.sh; source modules/media.sh; GROUNDCREW_OS=macos media::install'
   [ "$status" -eq 0 ]
   grep -q 'brew install ffmpeg' "$BATS_TEST_TMPDIR/calls.log"
-  grep -q 'uv tool install rembg' "$BATS_TEST_TMPDIR/calls.log"
+  grep -q 'uv tool install rembg\[cpu\]' "$BATS_TEST_TMPDIR/calls.log"
   [ -f "$GROUNDCREW_STATE_DIR/optional-media" ]
 }
 
-@test "media::install falls back to pipx for rembg when uv is absent" {
+@test "media::install falls back to pipx for rembg[cpu] when uv is absent" {
   rm -f "$STUB/uv"
   # PATH restricted to $STUB only: the host may have a real uv install, and
   # letting that leak in would defeat this absence/fallback test.
   run env PATH="$STUB" GROUNDCREW_OS=linux "$REAL_BASH" -c 'source lib/log.sh; source lib/guard.sh; source lib/detect.sh; source modules/media.sh; media::install'
   [ "$status" -eq 0 ]
-  grep -q 'pipx install rembg' "$BATS_TEST_TMPDIR/calls.log"
+  grep -q 'pipx install rembg\[cpu\]' "$BATS_TEST_TMPDIR/calls.log"
   [ -f "$GROUNDCREW_STATE_DIR/optional-media" ]
 }
 
@@ -143,6 +143,55 @@ setup() {
 # Shorthand: source the deps + module and run the installer, as install.sh does.
 _ck() {
   bash -c 'source lib/log.sh; source lib/guard.sh; source modules/claude-kit.sh; "claude-kit::install"'
+}
+
+@test "claude-kit::install installs the claude CLI via npm when it is absent" {
+  rm -f "$STUB/claude"
+  # This npm stub also drops a fake "claude" onto the stub PATH, standing in
+  # for the real npm global install actually putting the binary there — so
+  # the plugin-marketplace step right after it has something to call.
+  cat > "$STUB/npm" <<EOF
+#!/usr/bin/env bash
+echo "npm \$*" >> "$BATS_TEST_TMPDIR/calls.log"
+cat > "$STUB/claude" <<'INNER'
+#!/usr/bin/env bash
+echo "claude \$*" >> "$BATS_TEST_TMPDIR/calls.log"
+INNER
+chmod +x "$STUB/claude"
+EOF
+  chmod +x "$STUB/npm"
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  # PATH restricted to $STUB only: the host may have a real claude CLI on it
+  # (this repo's own dev box does), and letting that leak in would defeat
+  # this absence test — install.sh's real dispatch never does that either.
+  run env PATH="$STUB" "$REAL_BASH" -c 'source lib/log.sh; source lib/guard.sh; source modules/claude-kit.sh; "claude-kit::install"'
+  [ "$status" -eq 0 ]
+  grep -q 'npm install -g @anthropic-ai/claude-code' "$BATS_TEST_TMPDIR/calls.log"
+}
+
+@test "claude-kit::install skips the CLI install when claude is already present" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  ! grep -q 'npm install -g @anthropic-ai/claude-code' "$BATS_TEST_TMPDIR/calls.log"
+}
+
+@test "claude-kit::install fails and writes no marker when npm is absent and claude is not installed" {
+  rm -f "$STUB/claude" "$STUB/npm"
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run env PATH="$STUB" "$REAL_BASH" -c 'source lib/log.sh; source lib/guard.sh; source modules/claude-kit.sh; "claude-kit::install"'
+  [ "$status" -ne 0 ]
+  [ ! -f "$GROUNDCREW_STATE_DIR/optional-claude-kit" ]
+}
+
+@test "claude-kit::install adds the official marketplace and installs the curated plugin set" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  grep -q 'claude plugin marketplace add anthropics/claude-plugins-official' "$BATS_TEST_TMPDIR/calls.log"
+  for p in superpowers code-review commit-commands session-report; do
+    grep -q "claude plugin install $p@claude-plugins-official -y" "$BATS_TEST_TMPDIR/calls.log"
+  done
 }
 
 @test "claude-kit::install lays down agents, CLAUDE.md, hooks and cache-guard" {
@@ -178,7 +227,7 @@ _ck() {
   grep -q "GROUNDCREW-UNCONFIGURED" "$GROUNDCREW_CLAUDE_DIR/skills/ship-to-main/RULES.md"
 }
 
-@test "claude-kit::install never writes settings.json, only settings-additions.json" {
+@test "claude-kit::install never touches an existing settings.json, only settings-additions.json" {
   export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
   mkdir -p "$GROUNDCREW_CLAUDE_DIR"
   echo '{"mine":true}' > "$GROUNDCREW_CLAUDE_DIR/settings.json"
@@ -186,6 +235,26 @@ _ck() {
   [ "$status" -eq 0 ]
   [ "$(cat "$GROUNDCREW_CLAUDE_DIR/settings.json")" = '{"mine":true}' ]
   [ -f "$GROUNDCREW_CLAUDE_DIR/settings-additions.json" ]
+}
+
+@test "claude-kit::install writes settings.json outright when the host has none" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ -f "$GROUNDCREW_CLAUDE_DIR/settings.json" ]
+  # Nothing to merge and nothing to lose, so it's written outright rather than
+  # just dropped as settings-additions.json for a hand merge.
+  diff "$GROUNDCREW_CLAUDE_DIR/settings.json" "$GROUNDCREW_CLAUDE_DIR/settings-additions.json"
+}
+
+@test "claude-kit::install a second run does not touch settings.json it wrote on the first" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  _ck
+  echo '{"user edit": true}' > "$GROUNDCREW_CLAUDE_DIR/settings.json"
+  rm -f "$GROUNDCREW_STATE_DIR/optional-claude-kit"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ "$(cat "$GROUNDCREW_CLAUDE_DIR/settings.json")" = '{"user edit": true}' ]
 }
 
 @test "claude-kit::install backs up an existing file instead of clobbering it" {
