@@ -65,6 +65,7 @@ setup() {
   grep -q 'npm install -g playwright' "$BATS_TEST_TMPDIR/calls.log"
   grep -q 'npx --yes playwright install' "$BATS_TEST_TMPDIR/calls.log"
   [ -f "$GROUNDCREW_STATE_DIR/optional-playwright" ]
+  [ -s "$BATS_TEST_TMPDIR/calls.log" ]
 }
 
 @test "playwright::install errors and writes no marker when node is absent" {
