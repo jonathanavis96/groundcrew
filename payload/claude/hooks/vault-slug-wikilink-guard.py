@@ -16,13 +16,16 @@ always target the vault). If the written content contains a slug-style wikilink
 blocks the tool result and tells the agent to use inline code (or link the real
 note) instead. Never hard-fails. Read by the "PostToolUse" hook in settings.json.
 """
-import sys, json, os, re
+import json
+import os
+import re
+import sys
 
 # slug-wikilinks: [[reference_…]] / [[feedback_…]] / [[project_…]] / [[user_…]]
 SLUG_RE = re.compile(r"\[\[\s*(reference|feedback|project|user)_[^\]\n]*\]\]")
 # code spans are the SAFE form (don't render as links) — strip them before scan
-FENCE_RE = re.compile(r"```.*?```", re.S)
-INLINE_CODE_RE = re.compile(r"(`+)(?:(?!\1).)*?\1", re.S)
+FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+INLINE_CODE_RE = re.compile(r"(`+)(?:(?!\1).)*?\1", re.DOTALL)
 VAULT = os.path.realpath(
     os.path.expanduser(os.environ.get("CLAUDE_VAULT_DIR") or "~/ObsidianVault")
 )
@@ -37,7 +40,7 @@ def _strip_code(text):
 def _real(p):
     try:
         return os.path.realpath(p)
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return p or ""
 
 
@@ -49,7 +52,7 @@ def _under_vault(p):
 def main():
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return
 
     name = data.get("tool_name", "") or ""
@@ -95,5 +98,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - hook must degrade, never crash the session
         pass

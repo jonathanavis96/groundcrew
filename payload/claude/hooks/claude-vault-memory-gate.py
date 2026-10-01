@@ -23,7 +23,10 @@ just-ended turn:
 Loop-safe via stop_hook_active; never hard-fails (a gate bug must not wedge a
 turn). Read by the "Stop" hook in ~/.claude/settings.json.
 """
-import sys, json, os, subprocess
+import json
+import os
+import subprocess
+import sys
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 COMPLETION_MARKERS = (
@@ -49,7 +52,7 @@ def _cmd_writes(cmd):
 def main():
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return
 
     if data.get("stop_hook_active"):
@@ -110,7 +113,7 @@ def main():
     def real(path):
         try:
             return os.path.realpath(path)
-        except Exception:
+        except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
             return path or ""
 
     def under_vault(path):
@@ -193,7 +196,7 @@ def main():
                 + ("\n" if out.get("systemMessage") else "")
                 + f"🧹 Removed {len(removed)} empty phantom vault note(s): {names}{extra}."
             ).strip()
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - hook must degrade, never crash the session
         pass
 
     # --- Check 2: dirty work tree for repos edited this turn (warn only) ---
@@ -208,7 +211,7 @@ def main():
                 "⚠ Left uncommitted edits in: " + ", ".join(parts)
                 + ". Say \"commit it\" if you want them committed."
             )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - hook must degrade, never crash the session
         pass  # warning is best-effort; never break the gate
 
     if out:
@@ -246,7 +249,7 @@ def _dirty_repos(files):
     repos where those files are still uncommitted. Best-effort, fast, quiet."""
     def git(args, cwd):
         return subprocess.run(
-            ["git"] + args, cwd=cwd, capture_output=True, text=True, timeout=5
+            ["git"] + args, cwd=cwd, capture_output=True, text=True, timeout=5, check=False
         )
 
     root_cache = {}
@@ -259,7 +262,7 @@ def _dirty_repos(files):
         if root is None:
             try:
                 r = git(["rev-parse", "--show-toplevel"], d)
-            except Exception:
+            except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
                 root_cache[d] = ""
                 continue
             root = r.stdout.strip() if r.returncode == 0 else ""
@@ -268,7 +271,7 @@ def _dirty_repos(files):
             continue
         try:
             st = git(["status", "--porcelain", "--", rp], root)
-        except Exception:
+        except Exception:  # noqa: BLE001,S112 - hook must degrade, never crash the session
             continue
         if st.returncode == 0 and st.stdout.strip():
             per_repo[root] = per_repo.get(root, 0) + 1
@@ -278,5 +281,5 @@ def _dirty_repos(files):
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - hook must degrade, never crash the session
         pass

@@ -13,7 +13,11 @@ automatically if the current project dir contains _Agent_System/vault_lint.py.
 Never hard-fails: a bug here must not wedge a turn.
 """
 from __future__ import annotations
-import json, os, subprocess, sys
+
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 EDIT_TOOLS = {'Edit', 'Write', 'MultiEdit', 'NotebookEdit'}
@@ -31,7 +35,7 @@ def _resolve_vault(payload):
     for p in (Path(cand), Path(vault_env).expanduser()):
         try:
             p = p.resolve()
-        except Exception:
+        except Exception:  # noqa: BLE001,S112 - hook must degrade, never crash the session
             continue
         if (p / '_Agent_System' / 'vault_lint.py').exists():
             return p
@@ -52,7 +56,7 @@ def _touched_vault(payload, vault):
     try:
         with open(tpath, encoding='utf-8') as f:
             records = [json.loads(l) for l in f if l.strip()]
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return False
 
     last_user = -1
@@ -96,7 +100,7 @@ def _touched_vault(payload, vault):
                 try:
                     if fp and str(Path(fp).resolve()).startswith(vs + os.sep):
                         return True
-                except Exception:
+                except Exception:  # noqa: BLE001,S112 - hook must degrade, never crash the session
                     continue
             if name == 'Bash':
                 cmd = inp.get('command', '') or ''
@@ -108,7 +112,7 @@ def _touched_vault(payload, vault):
 def main():
     try:
         payload = json.load(sys.stdin)
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         payload = {}
     if payload.get('stop_hook_active') is True:
         return 0
@@ -122,10 +126,10 @@ def main():
     try:
         proc = subprocess.run(
             [sys.executable, str(linter), str(vault), '--baseline', str(baseline), '--json'],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=60, check=False,
         )
         result = json.loads(proc.stdout or '{}')
-    except Exception:
+    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return 0
 
     errors = [f for f in result.get('new', []) if f.get('severity') == 'ERROR']
