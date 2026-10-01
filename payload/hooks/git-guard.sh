@@ -8,7 +8,8 @@
 #     or --force-with-lease to succeed) to a shared branch such as
 #     main or master.
 #   * committing a file that looks like a secret: .env files, private
-#     keys (*.pem, id_rsa, *_rsa), credentials files, or *.key files.
+#     keys (*.pem, id_rsa, id_ed25519, id_ecdsa, id_dsa and their *_<type>
+#     variants), credentials files, or *.key files.
 #
 # This runs as a standalone git hook, invoked directly by git rather than
 # sourced, so it cannot rely on this repo's lib/log.sh being available —
@@ -71,21 +72,24 @@ _guard_is_secret_file() {
   case "$base" in
     .env | .env.*) return 0 ;;
     *.pem) return 0 ;;
-    *_rsa) return 0 ;;
+    *_rsa | *_ed25519 | *_ecdsa | *_dsa) return 0 ;;
     *credentials*) return 0 ;;
     *.key) return 0 ;;
     *) return 1 ;;
   esac
 }
 
+# R is included so "git mv notes.txt .env" cannot slip a secret in as a rename,
+# and -z keeps paths raw: without it git C-quotes any path with a non-ASCII
+# byte ("caf\303\251/.env"), and the trailing quote defeats the name match.
 _guard_check_pre_commit() {
   local f
-  while IFS= read -r f; do
+  while IFS= read -r -d '' f; do
     [[ -z "$f" ]] && continue
     if _guard_is_secret_file "$f"; then
       _guard_block "staged file '$f' looks like a secret"
     fi
-  done < <(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)
+  done < <(git diff --cached --name-only -z --diff-filter=ACMR 2>/dev/null)
 }
 
 main() {
