@@ -5,3 +5,6 @@ docs/superpowers/
 __pycache__/
 *.pyc
 dave-claude-kit-prompt.md
+
+# machine-local graphify hook config (absolute paths)
+.claude/settings.json

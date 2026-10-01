@@ -17,14 +17,17 @@ Finding.key() deliberately excludes `detail`, so an edit that shifts a line coun
 does not re-fire a known warning as new.
 """
 from __future__ import annotations
-import argparse, json, re, sys
-from dataclasses import dataclass, asdict
+
+import argparse
+import json
+import re
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 HEADING_RE=re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 TASK_RE=re.compile(r"^\s*[-*]\s+\[([^\]])\]\s+(.+)$")
 CREATED_RE=re.compile(r"➕\s+\d{4}-\d{2}-\d{2}")
-NON_ACTIONABLE=re.compile(r"\b(optional|later|deferred|awaiting|waiting|pending|not urgent|only if|at go-live|future|consider|blocked)\b",re.I)
+NON_ACTIONABLE=re.compile(r"\b(optional|later|deferred|awaiting|waiting|pending|not urgent|only if|at go-live|future|consider|blocked)\b",re.IGNORECASE)
 APPROVED={"now","next"}
 IGNORE_PARTS={".obsidian","_Legacy Snapshot","_Agent_System"}
 # Capture inbox: a scratch note where real checkboxes are appended on purpose and

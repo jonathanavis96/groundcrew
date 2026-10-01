@@ -20,10 +20,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG: dict[str, Any] = {
     "ttl_seconds": 3600,
     "warn_after_seconds": 3300,
     "cold_after_seconds": 3570,
@@ -61,7 +62,7 @@ def utc_now() -> float:
     return time.time()
 
 
-def iso(ts: Optional[float] = None) -> str:
+def iso(ts: float | None = None) -> str:
     return dt.datetime.fromtimestamp(ts if ts is not None else utc_now(), tz=dt.timezone.utc).isoformat(timespec="seconds")
 
 
@@ -90,7 +91,7 @@ def cwd_key(cwd: str) -> str:
     return hashlib.sha1((cwd or "").encode("utf-8", "ignore")).hexdigest()
 
 
-def _read_proc_min(pid: int) -> Tuple[Optional[str], int, Optional[bool]]:
+def _read_proc_min(pid: int) -> tuple[str | None, int, bool | None]:
     """Return (comm, ppid, has_claudecode) for a pid from /proc, or (None, 0, None).
 
     has_claudecode is True/False if /proc/<pid>/environ is readable, else None.
@@ -104,7 +105,7 @@ def _read_proc_min(pid: int) -> Tuple[Optional[str], int, Optional[bool]]:
         ppid = int(rest[1])
     except Exception:
         return None, 0, None
-    cc: Optional[bool] = None
+    cc: bool | None = None
     try:
         env = Path(f"/proc/{pid}/environ").read_bytes()
         cc = b"CLAUDECODE=" in env
@@ -136,8 +137,8 @@ def claude_origin_id() -> str:
     try:
         pid = os.getppid()
         seen: set = set()
-        boundary: Optional[int] = None
-        prev_cc: Optional[bool] = True  # the immediate hook process is a CC subprocess
+        boundary: int | None = None
+        prev_cc: bool | None = True  # the immediate hook process is a CC subprocess
         for _ in range(40):
             if pid <= 1 or pid in seen:
                 break
@@ -189,18 +190,18 @@ def atomic_write_text(path: Path, text: str) -> None:
     tmp.replace(path)
 
 
-def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+def atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
 
-def read_json(path: Path, default: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def read_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return dict(default or {})
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     ensure_dirs()
     cfg = dict(DEFAULT_CONFIG)
     cfg_path = BASE / "config.json"
@@ -214,7 +215,7 @@ def load_config() -> Dict[str, Any]:
     return cfg
 
 
-def read_hook_input() -> Dict[str, Any]:
+def read_hook_input() -> dict[str, Any]:
     raw = sys.stdin.read()
     if not raw.strip():
         return {}
@@ -227,12 +228,12 @@ def read_hook_input() -> Dict[str, Any]:
     return {}
 
 
-def session_paths(session_id: str) -> Tuple[Path, Path, Path]:
+def session_paths(session_id: str) -> tuple[Path, Path, Path]:
     sid = safe_id(session_id)
     return SESSIONS / f"{sid}.json", HANDOFFS / f"{sid}.md", HANDOFFS / f"{sid}.json"
 
 
-def transcript_size(path: Optional[str]) -> int:
+def transcript_size(path: str | None) -> int:
     if not path:
         return 0
     try:
@@ -241,7 +242,7 @@ def transcript_size(path: Optional[str]) -> int:
         return 0
 
 
-def read_jsonl_tail(path: Optional[str], max_bytes: int) -> List[Dict[str, Any]]:
+def read_jsonl_tail(path: str | None, max_bytes: int) -> list[dict[str, Any]]:
     if not path:
         return []
     p = Path(path).expanduser()
@@ -257,7 +258,7 @@ def read_jsonl_tail(path: Optional[str], max_bytes: int) -> List[Dict[str, Any]]
     except Exception as exc:
         log(f"read_jsonl_tail failed {p}: {exc}")
         return []
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for line in data.splitlines():
         line = line.strip()
         if not line:
@@ -278,7 +279,7 @@ def truncate(s: str, limit: int) -> str:
     return s[: max(0, limit - 20)].rstrip() + f" … [+{len(s)-limit} chars]"
 
 
-def iter_dicts(obj: Any) -> Iterable[Dict[str, Any]]:
+def iter_dicts(obj: Any) -> Iterable[dict[str, Any]]:
     if isinstance(obj, dict):
         yield obj
         for v in obj.values():
@@ -289,7 +290,7 @@ def iter_dicts(obj: Any) -> Iterable[Dict[str, Any]]:
 
 
 def text_from_content(content: Any, include_tool_results: bool = False) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -300,9 +301,7 @@ def text_from_content(content: Any, include_tool_results: bool = False) -> str:
                 typ = item.get("type")
                 if typ == "text" and isinstance(item.get("text"), str):
                     parts.append(item["text"])
-                elif typ == "tool_result" and include_tool_results:
-                    parts.append(text_from_content(item.get("content"), include_tool_results=False))
-                elif typ not in {"tool_use", "tool_result"}:
+                elif typ == "tool_result" and include_tool_results or typ not in {"tool_use", "tool_result"}:
                     parts.append(text_from_content(item.get("content"), include_tool_results=False))
     elif isinstance(content, dict):
         if isinstance(content.get("text"), str):
@@ -311,7 +310,7 @@ def text_from_content(content: Any, include_tool_results: bool = False) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def get_role(obj: Dict[str, Any]) -> Optional[str]:
+def get_role(obj: dict[str, Any]) -> str | None:
     for key in ("role", "type"):
         val = obj.get(key)
         if val in {"user", "assistant", "system"}:
@@ -324,15 +323,15 @@ def get_role(obj: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def get_message_text(obj: Dict[str, Any]) -> str:
+def get_message_text(obj: dict[str, Any]) -> str:
     if "message" in obj and isinstance(obj["message"], dict):
         return text_from_content(obj["message"].get("content"))
     return text_from_content(obj.get("content"))
 
 
-def extract_recent_messages(entries: List[Dict[str, Any]], cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
-    users: List[str] = []
-    assistants: List[str] = []
+def extract_recent_messages(entries: list[dict[str, Any]], cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    users: list[str] = []
+    assistants: list[str] = []
     for obj in entries:
         role = get_role(obj)
         text = get_message_text(obj)
@@ -345,9 +344,9 @@ def extract_recent_messages(entries: List[Dict[str, Any]], cfg: Dict[str, Any]) 
     return users[-int(cfg["recent_user_prompts"]):], assistants[-int(cfg["recent_assistant_messages"]):]
 
 
-def extract_tool_activity(entries: List[Dict[str, Any]], cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
-    files: List[str] = []
-    commands: List[str] = []
+def extract_tool_activity(entries: list[dict[str, Any]], cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    files: list[str] = []
+    commands: list[str] = []
     seen_files = set()
     for obj in entries:
         for d in iter_dicts(obj):
@@ -368,8 +367,8 @@ def extract_tool_activity(entries: List[Dict[str, Any]], cfg: Dict[str, Any]) ->
     return files[-int(cfg["recent_files"]):], commands[-int(cfg["recent_commands"]):]
 
 
-def extract_latest_usage(entries: List[Dict[str, Any]]) -> Dict[str, int]:
-    latest: Dict[str, int] = {}
+def extract_latest_usage(entries: list[dict[str, Any]]) -> dict[str, int]:
+    latest: dict[str, int] = {}
     keys = {
         "input_tokens",
         "cache_read_input_tokens",
@@ -388,7 +387,7 @@ def extract_latest_usage(entries: List[Dict[str, Any]]) -> Dict[str, int]:
     return latest
 
 
-def run_cmd(args: List[str], cwd: Optional[str], timeout: int, max_chars: int = 12000) -> str:
+def run_cmd(args: list[str], cwd: str | None, timeout: int, max_chars: int = 12000) -> str:
     try:
         cp = subprocess.run(args, cwd=cwd if cwd and Path(cwd).exists() else None, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
         return (cp.stdout or "").strip()[:max_chars]
@@ -396,7 +395,7 @@ def run_cmd(args: List[str], cwd: Optional[str], timeout: int, max_chars: int = 
         return f"[unavailable: {exc}]"
 
 
-def git_snapshot(cwd: Optional[str], cfg: Dict[str, Any]) -> Dict[str, str]:
+def git_snapshot(cwd: str | None, cfg: dict[str, Any]) -> dict[str, str]:
     timeout = int(cfg.get("git_command_timeout_seconds", 2))
     if not cwd or not Path(cwd).exists():
         return {"cwd": cwd or "", "git": "cwd unavailable"}
@@ -413,13 +412,13 @@ def git_snapshot(cwd: Optional[str], cfg: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-def bullet_list(items: List[str], empty: str = "None captured.") -> str:
+def bullet_list(items: list[str], empty: str = "None captured.") -> str:
     if not items:
         return empty
     return "\n".join(f"- {item}" for item in items)
 
 
-def build_handoff(data: Dict[str, Any], cfg: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+def build_handoff(data: dict[str, Any], cfg: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     session_id = str(data.get("session_id") or "unknown")
     transcript_path = str(data.get("transcript_path") or "")
     cwd = str(data.get("cwd") or "")
@@ -500,7 +499,7 @@ You are resuming after `/clear` or before avoiding a cold-cache rewarm. Use this
     return md, meta
 
 
-def write_handoff(data: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
+def write_handoff(data: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
     ensure_dirs()
     session_id = str(data.get("session_id") or "unknown")
     _, md_path, meta_path = session_paths(session_id)
@@ -537,7 +536,7 @@ def write_handoff(data: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
     return meta
 
 
-def update_session_state(data: Dict[str, Any], extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def update_session_state(data: dict[str, Any], extra: dict[str, Any] | None = None) -> dict[str, Any]:
     ensure_dirs()
     sid = str(data.get("session_id") or "unknown")
     state_path, _, _ = session_paths(sid)
@@ -579,7 +578,7 @@ def update_session_state(data: Dict[str, Any], extra: Optional[Dict[str, Any]] =
     return state
 
 
-def is_allowed_prompt(prompt: str, cfg: Dict[str, Any]) -> bool:
+def is_allowed_prompt(prompt: str, cfg: dict[str, Any]) -> bool:
     p = (prompt or "").strip()
     if not p:
         return True
@@ -598,7 +597,7 @@ def consume_allow_next(session_id: str) -> bool:
     return False
 
 
-def is_large_session(state: Dict[str, Any], cfg: Dict[str, Any]) -> bool:
+def is_large_session(state: dict[str, Any], cfg: dict[str, Any]) -> bool:
     tokens = int(state.get("estimated_context_tokens") or 0)
     bytes_ = int(state.get("transcript_size_bytes") or 0)
     token_threshold = int(cfg["min_context_tokens_to_block"])
@@ -606,7 +605,7 @@ def is_large_session(state: Dict[str, Any], cfg: Dict[str, Any]) -> bool:
     return tokens >= token_threshold or bytes_ >= byte_threshold
 
 
-def cold_age_seconds(state: Dict[str, Any]) -> Optional[float]:
+def cold_age_seconds(state: dict[str, Any]) -> float | None:
     ts = state.get("last_model_activity_ts") or state.get("updated_at_ts")
     if ts is None:
         return None
@@ -788,7 +787,7 @@ def hook_session_start() -> int:
     return 0
 
 
-def write_pending_clear(data: Dict[str, Any], meta: Optional[Dict[str, Any]] = None) -> None:
+def write_pending_clear(data: dict[str, Any], meta: dict[str, Any] | None = None) -> None:
     """Consume-once restore pointer for /clear.
 
     Lets SessionStart(clear) find the correct handoff even though Claude Code
@@ -824,7 +823,7 @@ def write_pending_clear(data: Dict[str, Any], meta: Optional[Dict[str, Any]] = N
 def hook_session_end() -> int:
     cfg = load_config()
     data = read_hook_input()
-    meta: Dict[str, Any] = {}
+    meta: dict[str, Any] = {}
     try:
         meta = write_handoff(data, cfg)
     except Exception as exc:
@@ -993,7 +992,7 @@ def self_test() -> int:
     return 0
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Claude Cache Guard")
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ["hook-stop", "hook-precompact"]:

@@ -1,0 +1,9 @@
+{
+  "include": [
+    "payload"
+  ],
+  "venvPath": "/home/jonathan/.local/venvs",
+  "venv": "greenscape",
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "basic"
+}
