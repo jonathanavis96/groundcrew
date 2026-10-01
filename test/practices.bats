@@ -45,7 +45,7 @@ setup() {
 }
 
 @test "practices::install installs executable pre-push AND pre-commit guard hooks" {
-  git -C "$GROUNDCREW_TARGET" init -q
+  git -C "$GROUNDCREW_TARGET" init -q --template=  # empty template: a host init.templateDir may pre-seed hooks
   run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
   [ "$status" -eq 0 ]
   [ -x "$GROUNDCREW_TARGET/.git/hooks/pre-push" ]
@@ -55,7 +55,7 @@ setup() {
 }
 
 @test "practices::install does not clobber a hook the project already has" {
-  git -C "$GROUNDCREW_TARGET" init -q
+  git -C "$GROUNDCREW_TARGET" init -q --template=  # empty template: a host init.templateDir may pre-seed hooks
   mkdir -p "$GROUNDCREW_TARGET/.git/hooks"
   printf '#!/bin/sh\necho existing-husky-hook\n' > "$GROUNDCREW_TARGET/.git/hooks/pre-push"
   run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
