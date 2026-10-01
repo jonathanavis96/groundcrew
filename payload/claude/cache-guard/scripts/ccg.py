@@ -1023,7 +1023,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "watch":
             return watcher_loop()
         if args.cmd == "watch-once":
-            return watcher_once()
+            # watcher_once() returns how many toasts it sent; that is not an
+            # exit status (1 warning would read as failure, 256 as success).
+            watcher_once()
+            return 0
         if args.cmd == "status":
             return print_status()
         if args.cmd == "init-config":
