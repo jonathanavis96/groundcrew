@@ -67,7 +67,14 @@ def main():
         os.path.expanduser(os.environ.get("CLAUDE_VAULT_DIR") or "~/ObsidianVault")
     )
     # Substrings that identify a vault/memory path inside a raw shell command.
-    vault_markers = (vault, "/.claude/projects/")
+    # Commands name the vault however they were typed: resolved, via the
+    # unresolved $CLAUDE_VAULT_DIR (often a symlink), or as ~/...
+    vault_raw = os.path.expanduser(
+        os.environ.get("CLAUDE_VAULT_DIR") or "~/ObsidianVault"
+    ).rstrip(os.sep)
+    vault_forms = {vault, vault_raw}
+    vault_forms |= {"~" + v[len(home):] for v in list(vault_forms) if v.startswith(home + os.sep)}
+    vault_markers = tuple(vault_forms) + ("/.claude/projects/", "~/.claude/projects/")
 
     records = []
     try:
@@ -207,10 +214,14 @@ def main():
             for root, n in dirty:
                 label = root.replace(home, "~")
                 parts.append(f"{label} ({n})")
-            out["systemMessage"] = (
+            warning = (
                 "⚠ Left uncommitted edits in: " + ", ".join(parts)
                 + ". Say \"commit it\" if you want them committed."
             )
+            # Append, never overwrite: the sweep above may already have
+            # reported files it DELETED, and that must not vanish silently.
+            prev = out.get("systemMessage")
+            out["systemMessage"] = f"{prev}\n{warning}" if prev else warning
     except Exception:  # noqa: BLE001,S110 - hook must degrade, never crash the session
         pass  # warning is best-effort; never break the gate
 

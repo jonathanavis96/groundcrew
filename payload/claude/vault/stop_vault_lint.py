@@ -53,9 +53,21 @@ def _touched_vault(payload, vault):
     tpath = payload.get('transcript_path')
     if not tpath or not os.path.exists(tpath):
         return False
+    # Parse line by line: the transcript is still being appended to, so its
+    # last line can be half-written. One bad line must not discard the turn —
+    # that would downgrade a vault-writing session's block to a mere warning.
+    records = []
     try:
         with open(tpath, encoding='utf-8') as f:
-            records = [json.loads(l) for l in f if l.strip()]
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(rec, dict):
+                    records.append(rec)
     except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
         return False
 
@@ -82,6 +94,12 @@ def _touched_vault(payload, vault):
     turn = records[last_user + 1:] if last_user >= 0 else records
 
     vs = str(vault)
+    # A shell command names the vault however the user typed it: resolved,
+    # via the unresolved $CLAUDE_VAULT_DIR (often a symlink), or as ~/...
+    vault_env = os.environ.get('CLAUDE_VAULT_DIR') or '~/ObsidianVault'
+    vault_forms = {vs, os.path.expanduser(vault_env).rstrip(os.sep)}
+    home = os.path.expanduser('~')
+    vault_forms |= {'~' + f[len(home):] for f in list(vault_forms) if f.startswith(home + os.sep)}
     for rec in turn:
         content = (rec.get('message') or {}).get('content')
         if not isinstance(content, list):
@@ -104,7 +122,7 @@ def _touched_vault(payload, vault):
                     continue
             if name == 'Bash':
                 cmd = inp.get('command', '') or ''
-                if vs in cmd and any(m in cmd for m in WRITE_MARKERS):
+                if any(v in cmd for v in vault_forms) and any(m in cmd for m in WRITE_MARKERS):
                     return True
     return False
 
@@ -123,20 +141,39 @@ def main():
     linter = vault / '_Agent_System' / 'vault_lint.py'
     baseline = vault / '_Agent_System' / 'lint-baseline.json'
 
+    proc = None
     try:
         proc = subprocess.run(
             [sys.executable, str(linter), str(vault), '--baseline', str(baseline), '--json'],
             capture_output=True, text=True, timeout=60, check=False,
         )
-        result = json.loads(proc.stdout or '{}')
-    except Exception:  # noqa: BLE001 - hook must degrade, never crash the session
+        result = json.loads(proc.stdout)
+        if not isinstance(result, dict):
+            raise ValueError('linter output is not a JSON object')
+    except Exception as exc:  # noqa: BLE001 - hook must degrade, never crash the session
+        # Degrade, but visibly: a crashed or broken linter used to read as
+        # "0 new errors", so the gate silently stopped gating.
+        detail = ((proc.stderr if proc else '') or '').strip().splitlines()[-1:]
+        print(json.dumps({
+            'systemMessage': (
+                f'⚠ Vault lint did not run cleanly ({type(exc).__name__}); '
+                'the vault lint gate was skipped this turn.'
+                + (f' Last stderr line: {detail[0]}' if detail else '')
+            )
+        }))
         return 0
 
-    errors = [f for f in result.get('new', []) if f.get('severity') == 'ERROR']
+    errors = [
+        f for f in result.get('new', [])
+        if isinstance(f, dict) and f.get('severity') == 'ERROR'
+    ]
     if not errors:
         return 0
 
-    lines = [f"  - {f['path']}:{f['line']} [{f.get('code','?')}] {f['message']}" for f in errors[:12]]
+    lines = [
+        f"  - {f.get('path', '?')}:{f.get('line', '?')} [{f.get('code', '?')}] {f.get('message', '')}"
+        for f in errors[:12]
+    ]
     if len(errors) > 12:
         lines.append(f"  ... +{len(errors) - 12} more")
     body = '\n'.join(lines)

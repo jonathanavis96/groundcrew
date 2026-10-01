@@ -73,6 +73,8 @@ def main():
             blobs.append(inp["content"])
         if isinstance(inp.get("new_string"), str):
             blobs.append(inp["new_string"])
+        if isinstance(inp.get("new_source"), str):  # NotebookEdit
+            blobs.append(inp["new_source"])
         for e in inp.get("edits") or []:
             if isinstance(e, dict) and isinstance(e.get("new_string"), str):
                 blobs.append(e["new_string"])
