@@ -108,7 +108,10 @@ def main() -> int:
 
     tool_input = dict(data.get("tool_input") or {})
     url = tool_input.get("url", "")
-    host = (urlparse(url).hostname or "").lower()
+    # urlparse splits "https://evil.com\@claude.ai/" at the "@" and reports
+    # claude.ai, while a WHATWG parser (what actually fetches) treats "\" as
+    # "/" and goes to evil.com. Never let such a URL ride the allowlist.
+    host = "" if "\\" in url else (urlparse(url).hostname or "").lower()
     if host and any(host == d or host.endswith("." + d) for d in allowed_domains()):
         return 0
 

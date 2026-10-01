@@ -174,6 +174,13 @@ _claude_kit__install_vault() {
   mkdir -p "$dest/vault-kit" || return 1
   for f in "$payload_dir"/vault/*; do
     [[ -f "$f" ]] || continue
+    # mcp-obsidian.json is where the user pastes their Local REST API key (see
+    # the warning below); seed it once so a re-install never swaps a live key
+    # for the placeholder, same as cache-guard/config.json.
+    if [[ "$(basename "$f")" == mcp-obsidian.json && -f "$dest/vault-kit/mcp-obsidian.json" ]]; then
+      log::info "vault-kit/mcp-obsidian.json exists, leaving your API key alone"
+      continue
+    fi
     _claude_kit__copy "$f" "$dest/vault-kit/$(basename "$f")" || return 1
   done
   # WSL2 -> Windows Obsidian bridge (wrapper + TCP forwarder). Harmless elsewhere.
