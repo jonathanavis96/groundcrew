@@ -313,6 +313,20 @@ EOF
   grep -q "PASTE-YOUR-LOCAL-REST-API-KEY-HERE" "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json"
 }
 
+@test "claude-kit::install re-run keeps the API key pasted into mcp-obsidian.json" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  export GROUNDCREW_CLAUDE_KIT_VAULT=1
+  _ck
+  sed -i 's/PASTE-YOUR-LOCAL-REST-API-KEY-HERE/real-key-123/' \
+    "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json"
+  rm -f "$GROUNDCREW_STATE_DIR/optional-claude-kit"
+  run _ck
+  [ "$status" -eq 0 ]
+  grep -q "real-key-123" "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json"
+  # Nor is the key duplicated into a stray backup file.
+  ! compgen -G "$GROUNDCREW_CLAUDE_DIR/vault-kit/mcp-obsidian.json.bak-*"
+}
+
 @test "claude-kit::install fails when the payload directory is missing" {
   # Copy the module somewhere with no sibling payload/ — the module resolves the
   # payload relative to its own BASH_SOURCE, so this is a genuine missing-payload
