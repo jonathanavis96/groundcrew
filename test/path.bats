@@ -20,6 +20,13 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; RC="$
   grep -q 'export FOO=bar' "$RC"
 }
 
+@test "wire does not glue its marker onto an rc with no trailing newline" {
+  printf 'export FOO=bar' > "$RC"
+  bash -c 'source lib/log.sh; source core/path.sh; path::wire '"$RC"
+  grep -qx 'export FOO=bar' "$RC"
+  grep -qx '# >>> groundcrew path >>>' "$RC"
+}
+
 @test "activate puts .local/bin on PATH in-process" {
   run bash -c 'source lib/log.sh; source core/path.sh; path::activate; echo "$PATH"'
   [ "$status" -eq 0 ]
