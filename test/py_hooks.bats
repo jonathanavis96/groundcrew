@@ -120,3 +120,15 @@ PY
   [ "$status" -eq 0 ]
   ls "$HOME/.claude/cache-guard/warnings/"s1*.json
 }
+
+@test "webfetch guard survives a non-object payload and wrong-typed fields" {
+  run bash -c "echo '[]' | python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  # A non-string url must still be constrained, not crash (a crash lets the fetch through).
+  run bash -c "echo '{\"tool_name\":\"WebFetch\",\"tool_input\":{\"url\":5,\"prompt\":7}}' | python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"updatedInput"'* ]]
+  run bash -c "echo '{\"tool_name\":\"WebFetch\",\"tool_input\":\"x\"}' | CLAUDE_WEBFETCH_MODE=deny python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]]
+}

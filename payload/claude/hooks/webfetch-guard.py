@@ -103,11 +103,16 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError):
         return 0  # Never break a tool call over a malformed payload.
 
-    if data.get("tool_name") != "WebFetch":
+    if not isinstance(data, dict) or data.get("tool_name") != "WebFetch":
         return 0
 
-    tool_input = dict(data.get("tool_input") or {})
-    url = tool_input.get("url", "")
+    # A crash here exits non-zero, which Claude Code treats as a non-blocking
+    # error — the fetch would then run unconstrained. Coerce wrong-typed fields
+    # instead of trusting them.
+    tool_input = data.get("tool_input")
+    tool_input = dict(tool_input) if isinstance(tool_input, dict) else {}
+    url = tool_input.get("url")
+    url = url if isinstance(url, str) else ""
     # urlparse splits "https://evil.com\@claude.ai/" at the "@" and reports
     # claude.ai, while a WHATWG parser (what actually fetches) treats "\" as
     # "/" and goes to evil.com. Never let such a URL ride the allowlist.
@@ -124,7 +129,8 @@ def main() -> int:
             }
         })
 
-    original = (tool_input.get("prompt") or "").strip()
+    original = tool_input.get("prompt")
+    original = original.strip() if isinstance(original, str) else ""
     if original.startswith("EXTRACTION ONLY"):
         return 0  # Already constrained; don't nest the preamble.
     tool_input["prompt"] = PREAMBLE + (original or "Return the main content of the page.")
