@@ -132,3 +132,11 @@ PY
   [ "$status" -eq 0 ]
   [[ "$output" == *'"permissionDecision": "deny"'* ]]
 }
+
+@test "vault_lint refuses a corrupt baseline instead of treating it as empty" {
+  printf '# Note\n- [~] x\n' >"$VAULT/n.md"
+  printf '["truncated' >"$BATS_TEST_TMPDIR/base.json"
+  run python3 "$VAULTKIT/vault_lint.py" "$VAULT" --baseline "$BATS_TEST_TMPDIR/base.json"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"unreadable"* ]]
+}

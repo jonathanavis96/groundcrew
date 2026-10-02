@@ -64,7 +64,7 @@ fi
 source "$HERE/lib/guard.sh"
 # shellcheck source=lib/detect.sh
 source "$HERE/lib/detect.sh"   # os::detect — the core modules branch on it, so source before running them
-for m in base python node graphify path; do
+for m in "${CORE_STEPS[@]}"; do
   # shellcheck disable=SC1090
   source "$HERE/core/$m.sh"
 done
