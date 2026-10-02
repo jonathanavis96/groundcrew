@@ -876,40 +876,48 @@ $n.Dispose()
     return False
 
 
+def _watch_session(path: Path, cfg: dict[str, Any], now: float) -> bool:
+    """Warn for one session file. True when a warning was sent."""
+    state = read_json(path, {})
+    sid = state.get("session_id") or path.stem
+    ended_ts = state.get("ended_at_ts")
+    if ended_ts and now - float(ended_ts) > float(cfg["stale_session_hours"]) * 3600:
+        return False
+    age = cold_age_seconds(state)
+    if age is None or not is_large_session(state, cfg):
+        return False
+    warn_after = float(cfg["warn_after_seconds"])
+    cold_after = float(cfg["cold_after_seconds"])
+    if age < warn_after:
+        return False
+    stage = "cold" if age >= cold_after else "warming"
+    warn_file = WARNINGS / f"{safe_id(str(sid))}.{stage}.json"
+    prev = read_json(warn_file, {})
+    if prev.get("ts") and now - float(prev["ts"]) < float(cfg["toast_cooldown_seconds"]):
+        return False
+    title = str(cfg.get("notify_title") or "Claude cache guard")
+    if stage == "warming":
+        body = f"Cache nearly cold for {state.get('cwd','')}. Handoff ready. Consider /clear if you pause."
+    else:
+        body = "Cache is cold for a large Claude session. Next normal prompt will be blocked; run /clear to auto-restore handoff."
+    sent = make_notification(title, body)
+    if not sent:
+        print(f"{title}: {body}", file=sys.stderr)
+    atomic_write_json(warn_file, {"ts": now, "at": iso(now), "stage": stage, "session_id": sid})
+    return sent
+
+
 def watcher_once() -> int:
     cfg = load_config()
     now = utc_now()
     warned = 0
     for path in sorted(SESSIONS.glob("*.json")):
-        state = read_json(path, {})
-        sid = state.get("session_id") or path.stem
-        ended_ts = state.get("ended_at_ts")
-        if ended_ts and now - float(ended_ts) > float(cfg["stale_session_hours"]) * 3600:
-            continue
-        age = cold_age_seconds(state)
-        if age is None:
-            continue
-        if not is_large_session(state, cfg):
-            continue
-        warn_after = float(cfg["warn_after_seconds"])
-        cold_after = float(cfg["cold_after_seconds"])
-        if age < warn_after:
-            continue
-        stage = "cold" if age >= cold_after else "warming"
-        warn_file = WARNINGS / f"{safe_id(str(sid))}.{stage}.json"
-        prev = read_json(warn_file, {})
-        if prev.get("ts") and now - float(prev["ts"]) < float(cfg["toast_cooldown_seconds"]):
-            continue
-        title = str(cfg.get("notify_title") or "Claude cache guard")
-        if stage == "warming":
-            body = f"Cache nearly cold for {state.get('cwd','')}. Handoff ready. Consider /clear if you pause."
-        else:
-            body = "Cache is cold for a large Claude session. Next normal prompt will be blocked; run /clear to auto-restore handoff."
-        if make_notification(title, body):
-            warned += 1
-        else:
-            print(f"{title}: {body}", file=sys.stderr)
-        atomic_write_json(warn_file, {"ts": now, "at": iso(now), "stage": stage, "session_id": sid})
+        # One corrupt session file (a non-numeric timestamp or token count) must
+        # not stop the remaining sessions from being checked.
+        try:
+            warned += _watch_session(path, cfg, now)
+        except (TypeError, ValueError) as exc:
+            log(f"watcher: skipping {path.name}: {exc}")
     return warned
 
 

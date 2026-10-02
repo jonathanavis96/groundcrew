@@ -107,3 +107,16 @@ PY
   [ "$status" -eq 0 ]
   ls "$HOME/.claude/cache-guard/warnings/"s1*.json
 }
+
+@test "ccg watch-once skips a session file with a corrupt timestamp and still warns on the rest" {
+  S="$HOME/.claude/cache-guard/sessions"
+  mkdir -p "$S"
+  printf '{"session_id":"a1","ended_at_ts":"garbage","last_model_activity_ts":1,"estimated_context_tokens":999999999}\n' >"$S/a1.json"
+  printf '{"session_id":"s1","last_model_activity_ts":1,"estimated_context_tokens":999999999}\n' >"$S/s1.json"
+  export CCG_NOTIFY_HELPER="$BATS_TEST_TMPDIR/notify"
+  printf '#!/bin/sh\nexit 0\n' >"$CCG_NOTIFY_HELPER"
+  chmod +x "$CCG_NOTIFY_HELPER"
+  run python3 "$REPO_ROOT/payload/claude/cache-guard/scripts/ccg.py" watch-once
+  [ "$status" -eq 0 ]
+  ls "$HOME/.claude/cache-guard/warnings/"s1*.json
+}
