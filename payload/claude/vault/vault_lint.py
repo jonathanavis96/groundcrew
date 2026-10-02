@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -98,7 +99,11 @@ def main():
         Path(a.write_baseline).write_text(json.dumps(sorted(f.key() for f in findings),indent=2)+'\n',encoding='utf-8')
         print(f'Wrote baseline with {len(findings)} findings'); return 0
     baseline=set()
-    if a.baseline and Path(a.baseline).exists(): baseline=set(json.loads(Path(a.baseline).read_text(encoding='utf-8')))
+    if a.baseline and Path(a.baseline).exists():
+        try: baseline=set(json.loads(Path(a.baseline).read_text(encoding='utf-8')))
+        except (ValueError,TypeError) as e:
+            # A truncated baseline must not read as "no baseline": that would re-fire every known finding as new.
+            print(f'Vault lint: baseline {a.baseline} is unreadable ({e}); fix or re-write it',file=sys.stderr); return 2
     new=[f for f in findings if f.key() not in baseline]
     if a.json: print(json.dumps({'new':[asdict(f) for f in new],'all_count':len(findings)},ensure_ascii=False))
     else:

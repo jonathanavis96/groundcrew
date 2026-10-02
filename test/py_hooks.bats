@@ -107,3 +107,36 @@ PY
   [ "$status" -eq 0 ]
   ls "$HOME/.claude/cache-guard/warnings/"s1*.json
 }
+
+@test "ccg watch-once skips a session file with a corrupt timestamp and still warns on the rest" {
+  S="$HOME/.claude/cache-guard/sessions"
+  mkdir -p "$S"
+  printf '{"session_id":"a1","ended_at_ts":"garbage","last_model_activity_ts":1,"estimated_context_tokens":999999999}\n' >"$S/a1.json"
+  printf '{"session_id":"s1","last_model_activity_ts":1,"estimated_context_tokens":999999999}\n' >"$S/s1.json"
+  export CCG_NOTIFY_HELPER="$BATS_TEST_TMPDIR/notify"
+  printf '#!/bin/sh\nexit 0\n' >"$CCG_NOTIFY_HELPER"
+  chmod +x "$CCG_NOTIFY_HELPER"
+  run python3 "$REPO_ROOT/payload/claude/cache-guard/scripts/ccg.py" watch-once
+  [ "$status" -eq 0 ]
+  ls "$HOME/.claude/cache-guard/warnings/"s1*.json
+}
+
+@test "webfetch guard survives a non-object payload and wrong-typed fields" {
+  run bash -c "echo '[]' | python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  # A non-string url must still be constrained, not crash (a crash lets the fetch through).
+  run bash -c "echo '{\"tool_name\":\"WebFetch\",\"tool_input\":{\"url\":5,\"prompt\":7}}' | python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"updatedInput"'* ]]
+  run bash -c "echo '{\"tool_name\":\"WebFetch\",\"tool_input\":\"x\"}' | CLAUDE_WEBFETCH_MODE=deny python3 '$HOOKS/webfetch-guard.py'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]]
+}
+
+@test "vault_lint refuses a corrupt baseline instead of treating it as empty" {
+  printf '# Note\n- [~] x\n' >"$VAULT/n.md"
+  printf '["truncated' >"$BATS_TEST_TMPDIR/base.json"
+  run python3 "$VAULTKIT/vault_lint.py" "$VAULT" --baseline "$BATS_TEST_TMPDIR/base.json"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"unreadable"* ]]
+}
