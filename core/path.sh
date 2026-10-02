@@ -8,6 +8,11 @@ path::wire() {
     log::info "PATH block already present in $rc"
     return 0
   fi
+  # An rc whose last line has no newline would otherwise get the begin marker
+  # glued onto it, corrupting both that line and the block.
+  if [[ -s "$rc" && -n "$(tail -c1 "$rc")" ]]; then
+    printf '\n' >> "$rc"
+  fi
   cat >> "$rc" <<EOF
 $begin
 export PATH="\$HOME/.local/bin:\$HOME/bin:\$PATH"
