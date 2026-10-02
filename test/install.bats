@@ -41,6 +41,12 @@ setup() { load test_helper; cd "$REPO_ROOT"; export GROUNDCREW_NO_COLOR=1; }
   [[ "$output" == *"unknown module"* ]]
 }
 
+@test "--module rejects a path-shaped name instead of sourcing it" {
+  run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --module ../lib/log'
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"unknown module"* ]]
+}
+
 @test "--module with --dry-run prints the plan and does not install" {
   run bash -c 'cd '"$REPO_ROOT"' && bash install.sh --module docker --dry-run'
   [ "$status" -eq 0 ]

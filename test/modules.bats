@@ -276,6 +276,16 @@ EOF
   [ "$(cat "$GROUNDCREW_CLAUDE_DIR/settings.json")" = '{"user edit": true}' ]
 }
 
+@test "claude-kit::install treats a dangling settings.json symlink as existing and writes nothing through it" {
+  export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
+  mkdir -p "$GROUNDCREW_CLAUDE_DIR"
+  ln -s "$BATS_TEST_TMPDIR/elsewhere.json" "$GROUNDCREW_CLAUDE_DIR/settings.json"
+  run _ck
+  [ "$status" -eq 0 ]
+  [ ! -e "$BATS_TEST_TMPDIR/elsewhere.json" ]
+  [ -L "$GROUNDCREW_CLAUDE_DIR/settings.json" ]
+}
+
 @test "claude-kit::install backs up an existing file instead of clobbering it" {
   export GROUNDCREW_CLAUDE_DIR="$BATS_TEST_TMPDIR/dotclaude"
   mkdir -p "$GROUNDCREW_CLAUDE_DIR"

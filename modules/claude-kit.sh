@@ -205,7 +205,8 @@ _claude_kit__settings_notice() {
   local payload_dir="$1" dest="$2"
   _claude_kit__copy "$payload_dir/settings-additions.json" \
     "$dest/settings-additions.json" || return 1
-  if [[ -f "$dest/settings.json" ]]; then
+  # -e alone misses a dangling symlink, which cp would happily write through.
+  if [[ -e "$dest/settings.json" || -L "$dest/settings.json" ]]; then
     log::warn "settings.json NOT modified — merge $dest/settings-additions.json into $dest/settings.json by hand"
     log::info "back up settings.json first; the file explains what each key does"
   else

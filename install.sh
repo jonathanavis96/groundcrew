@@ -33,7 +33,7 @@ done
 # per user pick after the core install (see the Agent Protocol in README.md).
 if [[ -n "$MODULE" ]]; then
   mod_file="$HERE/modules/$MODULE.sh"
-  [[ -f "$mod_file" ]] || { log::error "unknown module: $MODULE (see: ls modules/)"; exit 64; }
+  [[ "$MODULE" =~ ^[a-z][a-z0-9-]*$ && -f "$mod_file" ]] || { log::error "unknown module: $MODULE (see: ls modules/)"; exit 64; }
   if (( DRY )); then
     log::step "Plan (module=$MODULE)"
     printf 'module: %s\n' "$MODULE"
