@@ -6,10 +6,13 @@ _docker__do() {
   log::step "Installing Docker"
   case "$(os::detect)" in
     linux)
+      # USER is a login-shell variable: unset under cron, `env -i` or some
+      # container shells, where install.sh's `set -u` would abort on it.
+      local user="${USER:-$(id -un)}"
       sudo apt-get update -y || return 1
       sudo apt-get install -y docker.io || return 1
-      sudo usermod -aG docker "$USER" || return 1
-      log::warn "added $USER to the docker group — log out and back in (or run: newgrp docker) before using docker without sudo"
+      sudo usermod -aG docker "$user" || return 1
+      log::warn "added $user to the docker group — log out and back in (or run: newgrp docker) before using docker without sudo"
       ;;
     macos)
       brew install --cask docker || return 1

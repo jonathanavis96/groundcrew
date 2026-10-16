@@ -87,6 +87,12 @@ setup() {
   [ -f "$GROUNDCREW_STATE_DIR/optional-docker" ]
 }
 
+@test "docker::install (linux) adds the current user to the docker group when USER is unset" {
+  run bash -c 'set -u; unset USER; source lib/log.sh; source lib/guard.sh; source lib/detect.sh; source modules/docker.sh; GROUNDCREW_OS=linux docker::install'
+  [ "$status" -eq 0 ]
+  grep -q "sudo usermod -aG docker $(id -un)\$" "$BATS_TEST_TMPDIR/calls.log"
+}
+
 @test "docker::install (macos) installs the Docker Desktop cask via brew" {
   run bash -c 'source lib/log.sh; source lib/guard.sh; source lib/detect.sh; source modules/docker.sh; GROUNDCREW_OS=macos docker::install'
   [ "$status" -eq 0 ]

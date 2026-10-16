@@ -19,7 +19,8 @@ _practices__do() {
 
 _practices__install_agents_md() {
   local payload_dir="$1" dest="$2/AGENTS.md"
-  if [[ -f "$dest" ]]; then
+  # -L too: a dangling symlink fails -f, and cp would refuse to write through it.
+  if [[ -f "$dest" || -L "$dest" ]]; then
     log::info "AGENTS.md already exists at $dest, leaving it in place"
     return 0
   fi
@@ -28,12 +29,23 @@ _practices__install_agents_md() {
 }
 
 _practices__install_git_guard() {
-  local payload_dir="$1" target="$2" hooks_dir="$2/.git/hooks"
+  local payload_dir="$1" target="$2" hooks_dir common
   local src="$payload_dir/hooks/git-guard.sh"
-  if [[ ! -d "$target/.git" ]]; then
+  # -e, not -d: in a linked worktree or submodule .git is a file pointing at
+  # the real git dir, and hooks live in the common dir, not under $target.
+  if [[ ! -e "$target/.git" ]]; then
     log::info "$target is not a git repo, skipping git-guard hook"
     return 0
   fi
+  # GIT_DIR pins git to $target, so a broken .git cannot fall through to a
+  # parent repository's hooks.
+  target=$(cd "$target" && pwd) || return 1
+  if ! common=$(GIT_DIR="$target/.git" git -C "$target" rev-parse --git-common-dir 2>/dev/null); then
+    log::warn "$target/.git is not a usable git dir, skipping git-guard hook"
+    return 0
+  fi
+  [[ "$common" == /* ]] || common="$target/$common"
+  hooks_dir="$common/hooks"
   mkdir -p "$hooks_dir" || return 1
   # git-guard.sh self-dispatches on its hook name: pre-push blocks force-push to
   # main, pre-commit blocks staged secrets. Install both so both paths are live.

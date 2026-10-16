@@ -72,3 +72,36 @@ setup() {
   [ "$status" -eq 0 ]
   [ ! -e "$GROUNDCREW_TARGET/.git" ]
 }
+
+@test "practices::install installs the guard hooks into a git worktree (.git is a file)" {
+  main="$BATS_TEST_TMPDIR/main"
+  git init -q "$main"
+  git -C "$main" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+  rmdir "$GROUNDCREW_TARGET"
+  git -C "$main" worktree add -q "$GROUNDCREW_TARGET"
+  [ -f "$GROUNDCREW_TARGET/.git" ]
+  run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
+  [ "$status" -eq 0 ]
+  hooks="$(git -C "$GROUNDCREW_TARGET" rev-parse --path-format=absolute --git-common-dir)/hooks"
+  grep -q "git-guard" "$hooks/pre-push"
+  grep -q "git-guard" "$hooks/pre-commit"
+}
+
+@test "practices::install leaves a dangling AGENTS.md symlink alone instead of writing through it" {
+  ln -s "$BATS_TEST_TMPDIR/elsewhere.md" "$GROUNDCREW_TARGET/AGENTS.md"
+  run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
+  [ "$status" -eq 0 ]
+  [ -L "$GROUNDCREW_TARGET/AGENTS.md" ]
+  [ ! -e "$BATS_TEST_TMPDIR/elsewhere.md" ]
+}
+
+@test "practices::install never falls through a broken .git to a parent repo's hooks" {
+  parent="$BATS_TEST_TMPDIR/parent"
+  git init -q "$parent"
+  export GROUNDCREW_TARGET="$parent/sub"
+  mkdir -p "$GROUNDCREW_TARGET/.git"
+  run bash -c 'source lib/log.sh; source lib/guard.sh; source core/practices.sh; practices::install'
+  [ "$status" -eq 0 ]
+  [ ! -e "$parent/.git/hooks/pre-push" ]
+  [ ! -e "$parent/.git/hooks/pre-commit" ]
+}
