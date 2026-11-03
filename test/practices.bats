@@ -105,3 +105,12 @@ setup() {
   [ ! -e "$parent/.git/hooks/pre-push" ]
   [ ! -e "$parent/.git/hooks/pre-commit" ]
 }
+
+@test "practices::install resolves a relative target even when CDPATH would make cd print" {
+  git init -q "$GROUNDCREW_TARGET"
+  rel="$(basename "$GROUNDCREW_TARGET")"
+  run bash -c "cd \"\$(dirname \"$GROUNDCREW_TARGET\")\" && export CDPATH=. GROUNDCREW_TARGET=$rel && source \"$PWD/lib/log.sh\" && source \"$PWD/lib/guard.sh\" && source \"$PWD/core/practices.sh\" && practices::install"
+  [ "$status" -eq 0 ]
+  grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-push"
+  grep -q "git-guard" "$GROUNDCREW_TARGET/.git/hooks/pre-commit"
+}

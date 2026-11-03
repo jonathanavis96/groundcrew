@@ -38,8 +38,9 @@ _practices__install_git_guard() {
     return 0
   fi
   # GIT_DIR pins git to $target, so a broken .git cannot fall through to a
-  # parent repository's hooks.
-  target=$(cd "$target" && pwd) || return 1
+  # parent repository's hooks. CDPATH is cleared because a matching CDPATH makes
+  # cd print the directory, which would corrupt the captured path.
+  target=$(CDPATH='' cd -- "$target" && pwd) || return 1
   if ! common=$(GIT_DIR="$target/.git" git -C "$target" rev-parse --git-common-dir 2>/dev/null); then
     log::warn "$target/.git is not a usable git dir, skipping git-guard hook"
     return 0
